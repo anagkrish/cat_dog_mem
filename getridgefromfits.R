@@ -11,7 +11,7 @@ library(sp)
 library(grDevices)
 library(snow)
 library(doSNOW)
-library(Rmpi)
+#library(Rmpi)
 
 "%ni%" <- Negate("%in%")
 
