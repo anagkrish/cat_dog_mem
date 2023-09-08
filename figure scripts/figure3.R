@@ -15,36 +15,26 @@ library(distributions3)
 "%ni%" <- Negate("%in%")
 source("ranef.rma.mv.R") #hacked metafor function from Chris Fleming
 
-#---CLEAN CSV SO ALL YOU HAVE TO DO IS LOAD IT
-ridge <- read_csv("allridge.csv") %>%
-  filter(sp!="Canis dingo") %>% #we're dropping dingos now
-  mutate(sp = ifelse(sp=="Canis lupus x lycaon", "Canis lupus", sp), #and merging lupus x lycaon with lupus
-         sp = ifelse(sp=="Canis mesomelas", "Lupulella mesomelas", sp),
-         sp = ifelse(sp=="Pseudalopex vetulus", "Lycalopex vetula", sp)) %>% #rename species
-  mutate(phylo = ifelse(phylo=="Canis_mesomelas", "Lupulella_mesomelas", phylo),
-         phylo = ifelse(phylo=="Pseudalopex_vetulus", "Lycalopex_vetula", phylo)) %>%
-  mutate(pack_hunting = as.factor(pack_hunting),
-         log_mass = log10(mass),
+#load full csv
+ridge <- read_csv("ridge.csv") %>%
+  mutate(pursuit = as.factor(pursuit),
+         disruptfast = as.factor(disruptfast),
+         slowwalking = as.factor(slowwalking), 
+         #convert to factors bc they're read in as numerical
+         log_mass = log(mass),
          log_hr = log(area_ud_est),
          inv_ess = 1/ess,
          log_roughness = log(mean_roughness),
          log_hfi = log(mean_hfi),
          log_dhi_gpp = log(mean_dhi_gpp),
          point = as.factor(1:length(id)),
-         log_ridge = log(ridge_dens_est),
-         hunting_movement = as.factor(hunting_movement),
-         hunting_movement = fct_collapse(hunting_movement,
-                                         `Mixed Strategies` = c("Mixed Strategies","Mixed Strategies\r\n")),
-         hunting_cooperativity = as.factor(hunting_cooperativity),
-         pursuit = ifelse(hunting_movement=="Pursuit", 1, 0),
-         pursuit = as.factor(pursuit),
-         disruptfast = ifelse(hunting_movement %in% c("Disruptive Fast hunting", "Mixed Strategies"), 
-                              1, 0),
-         disruptfast = as.factor(disruptfast),
-         slowwalking = ifelse(hunting_movement %in% c("Slow walking", "Mixed Strategies"), 
-                              1, 0),
-         slowwalking = as.factor(slowwalking)) %>%
-  rename("mean_road_cover"=mean_road_dens)
+         log_ridge = log(ridge_dens_est)) %>%
+  #standardize vars
+  mutate(log_mass_st=mosaic::zscore(log_mass),
+         log_hr_st=mosaic::zscore(log_hr),
+         log_roughness_st=mosaic::zscore(log_roughness),
+         seasonality_dhi_gpp_st=mosaic::zscore(seasonality_dhi_gpp),
+         speed_est_st=mosaic::zscore(speed_est, na.rm=T))
 
 #download tree from: https://github.com/n8upham/MamPhy_v1/blob/master/_DATA/MamPhy_fullPosterior_BDvr_Completed_5911sp_topoCons_NDexp_MCC_v2_target.tre
 tree_all <- read.nexus("/tree/file/here")
@@ -63,14 +53,6 @@ tree_all$tip.label <- replace(tree_all$tip.label, which(tree_all$tip.label=="Pse
 #ursus: bear (further along carnivora branch)
 #halichoerus: grey seal (further along carnivora branch)
 #enhydra: sea otter (furthest along carnivora branch)
-# phylo_dna <- drop.tip(tree_dna, c(which(str_extract(tree_dna$tip.label, "[^_]*_[^_]*") %ni%
-#                                       c(unique(ridge$phylo),
-#                                                               "Phataginus_tetradactyla",
-#                                                               "Hyaena_hyaena",
-#                                                               "Herpestes_sanguineus",
-#                                                               "Enhydra_lutris",
-#                                                               "Halichoerus_grypus",
-#                                                               "Ursus_americanus"))))
 
 phylo <- drop.tip(tree_all, c(which(str_extract(tree_all$tip.label, "[^_]*_[^_]*") %ni%
                                       c(unique(ridge$phylo),
@@ -102,7 +84,7 @@ R <- list(phylo=ph_corr)
 
 #### single mod fit
 #best fit all
-mods <- ~ log_mass + pursuit + disruptfast + slowwalking + log_hr + inv_ess + log_roughness + mean_treecover + mean_road_cover
+mods <- ~ log_mass_st + pursuit + disruptfast + slowwalking + log_hr_st + inv_ess + log_roughness_st + mean_treecover + mean_hfi + seasonality_dhi_gpp_st
 
 FIT <- metafor::rma.mv(log_ridge,V=0,mods=mods,random=random,R=R,data=ridge)
 summary(FIT)
@@ -156,12 +138,23 @@ effsizes <- data.frame(subset=NA, var=NA, low=NA, est=NA, high=NA, type=NA, colo
   drop_na()
 
 effsizes <- effsizes %>%
-  rbind(c(subs, "Phylogenetic", append((exp(qnorm(1-0.05/2)*c(-1,1)*sqrt(FIT$sigma2[[1]])))-1, NA, after=1), 
+  #get intervals for one sd 
+  rbind(c(subs, "Phylogenetic", append((exp(c(-1,1)*sqrt(FIT$sigma2[[1]])))-1, NA, after=1), 
           "Biological Variance", "Biological Variance")) %>%
-  rbind(c(subs, "Individual", append((exp(qnorm(1-0.05/2)*c(-1,1)*sqrt(FIT$sigma2[[2]])))-1, NA, after=1), 
+  #get intervals for one sd 
+  rbind(c(subs, "Individual", append((exp(c(-1,1)*sqrt(FIT$sigma2[[2]])))-1, NA, after=1), 
           "Biological Variance", "Biological Variance")) %>%
   rbind(c(subs, "Phylogenetic\n(Clade)", exp(ctmm:::norm.ci(DIFF, VAR.DIFF))-1, 
           "Model Coefficients and Effects", "Biological Variance"))
+
+get_coefs <- function(tidy) {
+  
+  x <- c(tidy$lb, tidy$estimate, tidy$ub)
+  c <- abs(1-exp(x))*sign(x) 
+  
+  return(c)
+  
+}
 
 tidy <- broom::tidy(FIT) %>%
   mutate(ub = estimate + (std.error*qnorm(0.975)),
@@ -169,104 +162,134 @@ tidy <- broom::tidy(FIT) %>%
 
 for (i in seq_along(tidy$term)) {
   
-  if (tidy$term[[i]] == "speed_est") {
+  if (tidy$term[[i]] =="speed_est_st") {
     effsizes <- rbind(effsizes, 
-                      c(subs, "Speed\n(m/s)", 1 - exp(c(tidy$lb[[i]], tidy$estimate[[i]], tidy$ub[[i]])), 
-                        "Model Coefficients and Effects", "Model Coefficients and Effects"))
+                      c(subs, tidy$term[[i]], 
+                        get_coefs(filter(tidy, term==tidy$term[[i]])), 
+                        "Model Coefficient", "Model Coefficient"))
   }
   
-  if (tidy$term[[i]] == "log_mass") {
+  if (tidy$term[[i]] == "log_mass_st") {
     effsizes <- rbind(effsizes, 
-                      c(subs, "Mass (g)", (1 - exp(c(tidy$lb[[i]], tidy$estimate[[i]], tidy$ub[[i]])))/exp(1), 
-                        "Model Coefficients and Effects", "Model Coefficients and Effects"))
+                      c(subs, tidy$term[[i]], 
+                        get_coefs(filter(tidy, term==tidy$term[[i]])), 
+                        "Model Coefficient", "Model Coefficient"))
   }
   
   if (tidy$term[[i]] == "pursuit1") {
     effsizes <- rbind(effsizes, 
-                      c(subs, "Hunting Movement \n(Pursuit)", 
-                        1 - exp(c(tidy$lb[[i]], tidy$estimate[[i]], tidy$ub[[i]])), 
-                        "Model Coefficients and Effects", "Model Coefficients and Effects"))
+                      c(subs, tidy$term[[i]],
+                        get_coefs(filter(tidy, term==tidy$term[[i]])), 
+                        "Model Coefficient", "Model Coefficient"))
   }
   
   if (tidy$term[[i]] == "disruptfast1") {
     effsizes <- rbind(effsizes, 
-                      c(subs, "Hunting Movement \n(Disruptive Fast)", 
-                        1 - exp(c(tidy$lb[[i]], tidy$estimate[[i]], tidy$ub[[i]])), 
-                        "Model Coefficients and Effects", "Model Coefficients and Effects"))
+                      c(subs, tidy$term[[i]], 
+                        get_coefs(filter(tidy, term==tidy$term[[i]])), 
+                        "Model Coefficient", "Model Coefficient"))
   }
   
   if (tidy$term[[i]] == "slowwalking1") {
     effsizes <- rbind(effsizes, 
-                      c(subs, "Hunting Movement \n(Slow Walking)", 
-                        1 - exp(c(tidy$lb[[i]], tidy$estimate[[i]], tidy$ub[[i]])), 
-                        "Model Coefficients and Effects", "Model Coefficients and Effects"))
+                      c(subs, tidy$term[[i]],
+                        get_coefs(filter(tidy, term==tidy$term[[i]])), 
+                        "Model Coefficient", "Model Coefficient"))
   }
   
   
-  if (tidy$term[[i]] == "log_hr") {
+  if (tidy$term[[i]] == "log_hr_st") {
     effsizes <- rbind(effsizes, 
-                      c(subs, "Home Range \nArea (m²)", 
-                        (1 - exp(c(tidy$lb[[i]], tidy$estimate[[i]], tidy$ub[[i]])))/exp(1), 
-                        "Model Coefficients and Effects", "Model Coefficients and Effects"))
+                      c(subs, tidy$term[[i]], 
+                        (get_coefs(filter(tidy, term==tidy$term[[i]]))), 
+                        "Model Coefficient", "Model Coefficient"))
   }
   
-  if (tidy$term[[i]] == "log_roughness") {
-    effsizes <- rbind(effsizes, 
-                      c(subs, "Terrain \nRoughness (m)", 
-                        (1 - exp(c(tidy$lb[[i]], tidy$estimate[[i]], tidy$ub[[i]])))/exp(1), 
-                        "Model Coefficients and Effects", "Model Coefficients and Effects"))
-  }
   
-  if (tidy$term[[i]] == "log_hfi") {
+  if (tidy$term[[i]] == "log_roughness_st") {
     effsizes <- rbind(effsizes, 
-                      c(subs, "Human Footprint Index (%)", 
-                        (1 - exp(c(tidy$lb[[i]], tidy$estimate[[i]], tidy$ub[[i]])))/exp(1), 
-                        "Model Coefficients and Effects", "Model Coefficients and Effects"))
+                      c(subs, tidy$term[[i]], 
+                        (get_coefs(filter(tidy, term==tidy$term[[i]]))), 
+                        "Model Coefficient", "Model Coefficient"))
+  }
+
+  
+  if (tidy$term[[i]] == "mean_hfi") {
+    effsizes <- rbind(effsizes, 
+                      c(subs, tidy$term[[i]], 
+                        (get_coefs(filter(tidy, term==tidy$term[[i]]))), 
+                        "Model Coefficient", "Model Coefficient"))
   }
   
   if (tidy$term[[i]] == "mean_treecover") {
     effsizes <- rbind(effsizes, 
-                      c(subs, "Tree Cover (%)", 1 - exp(c(tidy$lb[[i]], tidy$estimate[[i]], tidy$ub[[i]])), 
-                        "Model Coefficients and Effects", "Model Coefficients and Effects"))
+                      c(subs, tidy$term[[i]], 
+                        get_coefs(filter(tidy, term==tidy$term[[i]])), 
+                        "Model Coefficient", "Model Coefficient"))
   }
   
-  if (tidy$term[[i]] == "mean_road_cover") {
+  if (tidy$term[[i]] == "seasonality_dhi_gpp_st") {
     effsizes <- rbind(effsizes, 
-                      c(subs, "Road Cover (%)", 1 - exp(c(tidy$lb[[i]], tidy$estimate[[i]], tidy$ub[[i]])), 
-                        "Model Coefficients and Effects", "Model Coefficients and Effects"))
-  }
-  
-  if (tidy$term[[i]] == "seasonality_dhi_gpp") {
-    effsizes <- rbind(effsizes, 
-                      c(subs, "Dynamic Habitat Index\n(Gross Primary Productivity)\n(kg C/m²))", 
-                        1 - exp(c(tidy$lb[[i]], tidy$estimate[[i]], tidy$ub[[i]])), 
-                        "Model Coefficients and Effects", "Model Coefficients and Effects"))
+                      c(subs, tidy$term[[i]], 
+                        get_coefs(filter(tidy, term==tidy$term[[i]])), 
+                        "Model Coefficient", "Model Coefficient"))
   }
   
 }
 
 colnames(effsizes) = c("subset", "var", "low", "est", "high", "type", "color")
 
+#rename/reorganize
+effsizes <- effsizes %>% 
+  mutate(type=ifelse(type=="Model Coefficient", "Model Coefficients and Effects", type),
+         color=ifelse(color=="Model Coefficient", "Model Coefficients and Effects", color),
+         name=var) %>%
+  mutate(name=ifelse(var=="log_mass_st", "Mass (g)\\*",
+              ifelse(var=="pursuit1", "Hunting Movement<br>(Pursuit)",
+              ifelse(var=="disruptfast1", "Hunting Movement<br>(Disruptive Fast)",
+              ifelse(var=="slowwalking1", "Hunting Movement<br>(Slow Walking)",
+              ifelse(var=="log_hr_st", "Home Range<br>Area (m²)\\*",
+              ifelse(var=="log_roughness_st", "Terrain<br>Roughness (m)\\*",
+              ifelse(var=="mean_hfi", "Human Footprint Index (%)",
+              ifelse(var=="mean_treecover", "Tree Cover (%)",
+              ifelse(var=="seasonality_dhi_gpp_st", 
+                     "Dynamic Habitat Index<br>(Gross Primary Productivity)<br>(kg C/m²))\\*",
+              ifelse(var=="speed_est", "Speed<br>(m/s)\\*", name)))))))))))
+
+library(ggtext)
+
 panel_a <- effsizes %>%
-  mutate(subset = factor(subset, levels = c("FULL", "dna only", "speed", 
-                                            "untouched dat", "full year", "shared landscape"),
+  filter(subset%in%c("full")) %>%
+  mutate(subset = factor(subset, levels = c("full", "dna only", "speed inc", 
+                                            "clean", "duration > 1yr", "same landscape"),
                          labels = c("Full", "DNA Only Tree", "Speed Included", 
-                                    "No Preprocessing", "Year or Longer", "Shared Landscapes")),
-         var = factor(var, levels=rev(unique(effsizes$var)))) %>% #flip list
-  mutate_at(c("low","est","high"), function(x){parse_number(x)*100}) %>%
-  ggplot(mapping=aes(x=est, y = var, color = color)) +
+                                    "No Preprocessing", "Year or Longer", "Shared Landscapes"))) %>%
+  mutate(textcol = #phylo/rand effects
+                   ifelse(var %in% c("Phylogenetic", "Individual", "Phylogenetic<br>(Clade)"), "**", 
+                   #log transformed vars
+                   ifelse(var %in% c("log_mass_st", "log_hr_st", "log_roughness_st"), "***",
+                   #indicator vars
+                   ifelse(var %in% c("pursuit1", "disruptfast1", "slowwalking1"), "_", 
+                   #untransformed vars
+                   ifelse(var %in% c("mean_hfi", "mean_treecover", 
+                                     "seasonality_dhi_gpp_st", "speed_est"), "", NA))))) %>%
+  mutate(label = paste(textcol, name, textcol, sep = ""),
+         label = fct_reorder(label, rev(sort(as.character(label))))) %>%
+  #mutate_at(c("low","est","high"), function(x){x*100}) %>%  #parse_number(x)*100}) %>%
+  ggplot(mapping=aes(x=est, y = label, color = color)) +
   geom_point() +
   geom_errorbar(mapping=aes(xmin=low, xmax=high)) +
   geom_vline(mapping=aes(xintercept=0), linetype="dashed") +
-  labs(x="Effect Size (Percent Increase in Ridge Density)", y = NULL, color = NULL,
-       subtitle="\nFull (N=1219, C=16, F=18)") +
-  scale_color_manual(values=c("Model Coefficients and Effects"="#5ac85a","Biological Variance"="#D2AAF0")) +
-  facet_grid(type~., scales="free", space="free") +
-  ggforce::facet_col(type~., scales = 'free', space = 'free') +
+  labs(x="Effect Size (Percent Increase in Ridge Density)", y = NULL, color = NULL) +
+  scale_x_continuous(labels = scales::percent) +
+  scale_color_manual(values=c("Model Coefficients and Effects"="#5ac85a","Biological Variance"="#6d2f9c")) +
   theme_bw() +
   theme(legend.direction = "horizontal",
         legend.position = "none",
-        text=element_text(size=15))
+        text=element_text(size=15),
+        axis.text.y=element_markdown()) +
+  facet_grid(type~., scales="free", space="free") +
+  ggforce::facet_col(type~., scales = 'free', space = 'free')
 
 plot(panel_a)
 
@@ -286,18 +309,18 @@ panel_b <- ridgedensreldiffs %>%
                 width = 0.5, position=position_dodge(width=0.5)) +
   theme_bw() +
   labs(x=NULL, y="Ridge Density Percent Difference \n(Canid/Felid)") +
-  scale_x_discrete(breaks = c("FULL", "dna only tree", "speed included", "untouched dat",
-                              "duration >1yr", "shared landscape"), 
+  scale_x_discrete(breaks = c("full", "dna only", "speed inc", "clean",
+                              "duration >1 yr", "shared landscape"), 
                    labels = c("Full", "DNA Only\nTree", "Speed\nIncluded", "No\nPreprocessing",
                               "Year or\nLonger", "Shared\nLandscapes")) +
   geom_hline(mapping=aes(yintercept = 0), linetype="dashed") +
-  geom_text(aes(label = c("N=1219\nC=16\nF=18", "N=1011\nC=16\nF=18", "N=1183\nC=15\nF=17",
-                          "N=1064\nC=16\nF=18", "N=338\nC=13\nF=16", "N=216\nC=7\nF=7"),
+  geom_text(aes(label = c("N=1219\nC=16\nF=18", "N=1064\nC=16\nF=18", "N=1011\nC=16\nF=18",
+                          "N=1183\nC=15\nF=17", "N=338\nC=13\nF=16", "N=216\nC=7\nF=7"),
                 y = rep(c(0.05), times = 6)), size=3) +
   # geom_text(aes(label = c("N=1219\nC=16\nc", "N=1011",  "N=1183", "N=1064", "N=338", "N=216"), 
   #               y = rep(c(0.1), times = 6)), size=3) +
-  scale_y_continuous(limits=c(0, 0.5), breaks = c(0, 0.1, 0.2, 0.3, 0.4, 0.5), 
-                     labels = c("0%","10%","20%","30%", "40%", "50%")) +
+  scale_y_continuous(limits=c(0, 0.6), breaks = c(0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6), 
+                     labels = c("0%","10%","20%","30%", "40%", "50%", "60%")) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
         panel.background = element_blank(), axis.line = element_line(colour = "black"))
 

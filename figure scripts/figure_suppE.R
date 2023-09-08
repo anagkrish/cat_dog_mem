@@ -19,28 +19,23 @@ source("~ranef.rma.mv.R")
 "%ni%" <- Negate("%in%")
 
 #########################
-#---CLEAN CSV SO ALL YOU HAVE TO DO IS LOAD IT
-ridge <- read_csv("allridge.csv") %>%
-  filter(sp!="Canis dingo") %>% #we're dropping dingos now
-  mutate(sp = ifelse(sp=="Canis lupus x lycaon", "Canis lupus", sp), #and merging lupus x lycaon with lupus
-         sp = ifelse(sp=="Canis mesomelas", "Lupulella mesomelas", sp),
-         sp = ifelse(sp=="Pseudalopex vetulus", "Lycalopex vetula", sp)) %>% #rename species
-  mutate(phylo = ifelse(phylo=="Canis_mesomelas", "Lupulella_mesomelas", phylo),
-         phylo = ifelse(phylo=="Pseudalopex_vetulus", "Lycalopex_vetula", phylo)) %>%
-  mutate(sp = ifelse(sp=="Canis lupus x lycaon", "Canis lupus", sp)) %>% #and merging lupus x lycaon with lupus
-  mutate(pack_hunting = as.factor(pack_hunting),
-         log_mass = log10(mass),
+ridge <- read_csv("ridge.csv") %>%
+  mutate(pursuit = as.factor(pursuit),
+         disruptfast = as.factor(disruptfast),
+         slowwalking = as.factor(slowwalking), #convert to factors bc they're read in as numerical
+         log_mass = log(mass), #log10(mass)
          log_hr = log(area_ud_est),
          inv_ess = 1/ess,
          log_roughness = log(mean_roughness),
          log_hfi = log(mean_hfi),
          log_dhi_gpp = log(mean_dhi_gpp),
          point = as.factor(1:length(id)),
-         log_ridge = log(ridge_dens_est),
-         hunting_movement = as.factor(hunting_movement),
-         hunting_movement = fct_collapse(hunting_movement,
-                                         `Mixed Strategies` = c("Mixed Strategies","Mixed Strategies\r\n")),
-         hunting_cooperativity = as.factor(hunting_cooperativity)) #%>%
+         log_ridge = log(ridge_dens_est)) %>%
+  mutate(log_mass_st=mosaic::zscore(log_mass),
+         log_hr_st=mosaic::zscore(log_hr),
+         log_roughness_st=mosaic::zscore(log_roughness),
+         seasonality_dhi_gpp_st=mosaic::zscore(seasonality_dhi_gpp),
+         speed_est_st=mosaic::zscore(speed_est, na.rm=T))
 
 #download tree from: https://github.com/n8upham/MamPhy_v1/blob/master/_DATA/MamPhy_fullPosterior_BDvr_Completed_5911sp_topoCons_NDexp_MCC_v2_target.tre
 tree_all <- read.nexus("/tree/file/here")

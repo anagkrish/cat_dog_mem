@@ -15,36 +15,26 @@ library(distributions3)
 "%ni%" <- Negate("%in%")
 source("ranef.rma.mv.R") #hacked metafor function from Chris Fleming
 
-#---CLEAN CSV SO ALL YOU HAVE TO DO IS LOAD IT
-ridge <- read_csv("allridge.csv") %>%
-  filter(sp!="Canis dingo") %>% #we're dropping dingos now
-  mutate(sp = ifelse(sp=="Canis lupus x lycaon", "Canis lupus", sp), #and merging lupus x lycaon with lupus
-         sp = ifelse(sp=="Canis mesomelas", "Lupulella mesomelas", sp),
-         sp = ifelse(sp=="Pseudalopex vetulus", "Lycalopex vetula", sp)) %>% #rename species
-  mutate(phylo = ifelse(phylo=="Canis_mesomelas", "Lupulella_mesomelas", phylo),
-         phylo = ifelse(phylo=="Pseudalopex_vetulus", "Lycalopex_vetula", phylo)) %>%
-  mutate(pack_hunting = as.factor(pack_hunting),
-         log_mass = log10(mass),
+#load full csv
+ridge <- read_csv("ridge.csv") %>%
+  mutate(pursuit = as.factor(pursuit),
+         disruptfast = as.factor(disruptfast),
+         slowwalking = as.factor(slowwalking), 
+         #convert to factors bc they're read in as numerical
+         log_mass = log(mass),
          log_hr = log(area_ud_est),
          inv_ess = 1/ess,
          log_roughness = log(mean_roughness),
          log_hfi = log(mean_hfi),
          log_dhi_gpp = log(mean_dhi_gpp),
          point = as.factor(1:length(id)),
-         log_ridge = log(ridge_dens_est),
-         hunting_movement = as.factor(hunting_movement),
-         hunting_movement = fct_collapse(hunting_movement,
-                                         `Mixed Strategies` = c("Mixed Strategies","Mixed Strategies\r\n")),
-         hunting_cooperativity = as.factor(hunting_cooperativity),
-         pursuit = ifelse(hunting_movement=="Pursuit", 1, 0),
-         pursuit = as.factor(pursuit),
-         disruptfast = ifelse(hunting_movement %in% c("Disruptive Fast hunting", "Mixed Strategies"), 
-                              1, 0),
-         disruptfast = as.factor(disruptfast),
-         slowwalking = ifelse(hunting_movement %in% c("Slow walking", "Mixed Strategies"), 
-                              1, 0),
-         slowwalking = as.factor(slowwalking)) %>%
-  rename("mean_road_cover"=mean_road_dens)
+         log_ridge = log(ridge_dens_est)) %>%
+  #standardize vars
+  mutate(log_mass_st=mosaic::zscore(log_mass),
+         log_hr_st=mosaic::zscore(log_hr),
+         log_roughness_st=mosaic::zscore(log_roughness),
+         seasonality_dhi_gpp_st=mosaic::zscore(seasonality_dhi_gpp),
+         speed_est_st=mosaic::zscore(speed_est, na.rm=T))
 
 #download tree from: https://github.com/n8upham/MamPhy_v1/blob/master/_DATA/MamPhy_fullPosterior_BDvr_Completed_5911sp_topoCons_NDexp_MCC_v2_target.tre
 tree_all <- read.nexus("/tree/file/here")
@@ -100,7 +90,7 @@ R <- list(phylo=ph_corr)
 
 #### single mod fit
 #best fit all
-mods <- ~ log_mass + pursuit + disruptfast + slowwalking + log_hr + inv_ess + log_roughness + mean_treecover + mean_road_cover
+mods <- mods <- ~ log_mass_st + pursuit + disruptfast + slowwalking + log_hr_st + inv_ess + log_roughness_st + mean_treecover + mean_hfi + seasonality_dhi_gpp_st
 
 FIT <- metafor::rma.mv(log_ridge,V=0,mods=mods,random=random,R=R,data=ridge)
 summary(FIT)
@@ -147,8 +137,9 @@ VAR.DIFF <- c(W %*% RCOV %*% W)
 ctmm:::norm.ci(DIFF, VAR.DIFF)
 exp(ctmm:::norm.ci(DIFF, VAR.DIFF))
 
-sp_level_ests <- aggregate(cbind(log_mass, log_roughness, mean_treecover, 
-                                 mean_road_cover, log_hr, inv_ess, log_dhi_gpp, ridge_dens_est) ~ sp, #mean_dhi_ndvi,  log_dhi_gpp,
+sp_level_ests <- aggregate(cbind(log_mass_st, log_roughness_st, mean_treecover, 
+                                 mean_hfi, log_hr_st, inv_ess, 
+                                 seasonality_dhi_gpp_st, ridge_dens_est) ~ sp, 
                            data=ridge,
                            FUN = mean) %>%
   left_join(dplyr::select(ridge, c("sp", "clade", "pursuit", "disruptfast", "slowwalking", "hunting_movement")), 
@@ -163,18 +154,19 @@ for (i in seq_along(sp_level_ests$sp)) {
   SLOPE.VAR <- RCOV[str_replace(species, " ", "_"), str_replace(species, " ", "_")]
   
   #get avg vars
-  log_mass <- (sp_level_ests %>% filter(sp==species))$log_mass
-  log_roughness <- (sp_level_ests %>% filter(sp==species))$log_roughness
+  log_mass_st <- (sp_level_ests %>% filter(sp==species))$log_mass_st
+  log_roughness_st <- (sp_level_ests %>% filter(sp==species))$log_roughness_st
   mean_treecover <- (sp_level_ests %>% filter(sp==species))$mean_treecover
-  mean_road_cover <- (sp_level_ests %>% filter(sp==species))$mean_road_cover
-  log_hr <- (sp_level_ests %>% filter(sp==species))$log_hr
+  mean_hfi <- (sp_level_ests %>% filter(sp==species))$mean_hfi
+  log_hr_st <- (sp_level_ests %>% filter(sp==species))$log_hr_st
   inv_ess <- (sp_level_ests %>% filter(sp==species))$inv_ess
+  seasonality_dhi_gpp <- (sp_level_ests %>% filter(sp==species))$seasonality_dhi_gpp
   pursuit <- ifelse((sp_level_ests %>% filter(sp==species))$pursuit==1, 1, 0)
   disruptfast <- ifelse((sp_level_ests %>% filter(sp==species))$disruptfast==1, 1, 0)
   slowwalking <- ifelse((sp_level_ests %>% filter(sp==species))$slowwalking==1, 1, 0)
   
-  GRAD <- c(1, log_mass, pursuit, disruptfast, slowwalking,
-            log_hr, inv_ess, log_roughness, mean_treecover, mean_road_cover)
+  Gc(1, log_mass_st, pursuit, disruptfast, slowwalking, log_hr_st, inv_ess, 
+     log_roughness_st, mean_treecover, mean_hfi, seasonality_dhi_gpp_st)
   
   EST <- GRAD %*% FIT$beta + SLOPE.EST
   
@@ -188,11 +180,11 @@ for (i in seq_along(sp_level_ests$sp)) {
   exp(ctmm:::norm.ci(EST[,1], SE[,1]))
   
   sp_level_ests$pred_ridge[i] <- exp(ctmm:::norm.ci(EST[,1], SE[,1]))[2]
-  #print(paste(sp, sp_level_ests$mean_ridge[i], sp_level_ests$pred[i]))
-}
+
+  }
 
 phylo$tip.label <- replace(phylo$tip.label, which(phylo$tip.label=="Canis_mesomelas"), "Lupulella_mesomelas")
-phylo$tip.label <- replace(phylo$tip.label, which(phylo$tip.label=="Pseudalopex_vetulus"), "Lycalopex_vetula")
+phylo$tip.label <- replace(phylo$tip.label, which(phylo$tip.label=="Pseudalopex_vetulus"), "Lycalopex_vetulus")
 names(phylo$tip.label) <- NULL
 
 #avg ridge vals
@@ -270,7 +262,7 @@ p <- ggtree(phylo_plot) +
 p <- revts(p) +
   scale_x_continuous(breaks=c(-60,-50,-40,-30,-20,-10,0), labels = abs) +
   labs(x="MYA") +
-  theme(text=element_text(size=14))
+  theme(text=element_text(size=18))
 
 gheatmap(p, phylo_dat,
          offset = 20,
@@ -282,18 +274,19 @@ gheatmap(p, phylo_dat,
   theme(plot.margin = unit(c(0.1, 8, 0, 0.5), "cm"),
         legend.position = c(1.03,0.45), legend.direction="vertical",
         legend.key = element_rect(color="black", fill = NA),
-        legend.key.height = unit(2, 'cm'), text=element_text(size=10),
+        legend.background=element_blank(),
+        legend.key.height = unit(2, 'cm'), text=element_text(size=16),
         axis.title.x = element_text(hjust=0.03, vjust=15)) +
   coord_cartesian(clip="off") +
   guides(fill = guide_colorbar(override.aes=list(fill=NA),
                                title.position = "right", title.theme = element_text(angle=270),
                                title.hjust = 0.5, title.vjust = -7.3)) +
-  ggimage::geom_image(x=65, y=-5, 
+  ggimage::geom_image(x=65, y=-6.5, 
              image="dog.png", 
-             size=0.3) +
-  ggimage::geom_image(x=65, y=-38, 
+             size=0.4) +
+  ggimage::geom_image(x=65, y=-35.5, 
                       image="cat.png", 
-                      size=0.3) +
+                      size=0.4) +
   labs(fill="Ridge Density")
 
 
