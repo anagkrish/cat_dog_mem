@@ -18,22 +18,27 @@ source("ranef.rma.mv.R") #hacked metafor function from Chris Fleming
 #########################
 #cleaned final dataset (n=1219 without dingos) - cleaned in file get_new_ridges.Rmd
 ridge <- read_csv("ridge.csv") %>%
+  filter(`kept (y/n)` == "y") %>% #drop all dropped individuals
   mutate(pursuit = as.factor(pursuit),
          disruptfast = as.factor(disruptfast),
-         slowwalking = as.factor(slowwalking), #convert to factors bc they're read in as numerical
-         log_mass = log(mass), #log10(mass)
-         log_hr = log(area_ud_est),
+         slowwalking = as.factor(slowwalking), 
+         #convert to factors bc they're read in as numerical
+         log_mass = log(`mass (g)`),
+         log_hr = log(`area_ud_est (m^2)`),
          inv_ess = 1/ess,
          log_roughness = log(mean_roughness),
          log_hfi = log(mean_hfi),
          log_dhi_gpp = log(mean_dhi_gpp),
          point = as.factor(1:length(id)),
-         log_ridge = log(ridge_dens_est)) %>%
+         log_ridge = log(`ridge_dens_est (1/m)`)) %>%
+  #standardize vars
   mutate(log_mass_st=mosaic::zscore(log_mass),
          log_hr_st=mosaic::zscore(log_hr),
          log_roughness_st=mosaic::zscore(log_roughness),
          seasonality_dhi_gpp_st=mosaic::zscore(seasonality_dhi_gpp),
-         speed_est_st=mosaic::zscore(speed_est, na.rm=T))
+         speed_est_st=mosaic::zscore(`speed_est (m/s)`, na.rm=T),
+         mean_treecover=mean_treecover/100)
+
 
 #download tree from: https://github.com/n8upham/MamPhy_v1/blob/master/_DATA/MamPhy_fullPosterior_BDvr_Completed_5911sp_topoCons_NDexp_MCC_v2_target.tre
 tree_all <- read.nexus("/tree/file/here")
@@ -43,7 +48,7 @@ tree_all <- read.nexus("/tree/file/here")
 tree_all$tip.label <- sapply(tree_all$tip.label, function(x) str_extract(x, "[^_]*_[^_]*"))
 #rename canis mesomelas and pseudalopex vetulus in phylogeny
 tree_all$tip.label <- replace(tree_all$tip.label, which(tree_all$tip.label=="Canis_mesomelas"), "Lupulella_mesomelas")
-tree_all$tip.label <- replace(tree_all$tip.label, which(tree_all$tip.label=="Pseudalopex_vetulus"), "Lycalopex_vetula")
+tree_all$tip.label <- replace(tree_all$tip.label, which(tree_all$tip.label=="Pseudalopex_vetulus"), "Lycalopex_vetulus")
 
 #fit landscape level mods + clade diff tests
 
@@ -135,20 +140,20 @@ VAR.DIFF <- c(W %*% RCOV %*% W)
 ctmm:::norm.ci(DIFF, VAR.DIFF)
 exp(ctmm:::norm.ci(DIFF, VAR.DIFF))
 
-#predict vals for landscape (aggregate and get raw data mean/se)
+#predict vals for landscape (aggregate and get empirical mean and confidence intervals)
 study_ests <- do.call(data.frame,
-                      aggregate(cbind(inv_ess, ridge_dens_est) ~ sp + updatedstudy + updatedstudygroups, 
+                      aggregate(cbind(inv_ess, `ridge_dens_est (1/m)`) ~ sp + updatedstudy + updatedstudygroups, 
                                 data=study,
                                 FUN = function(x) c(mn = mean(x), se = (sd(x)/sqrt(length((x))))))) %>%
   left_join(dplyr::select(ridge, c("sp","updatedstudy","clade")),
             by=c("sp"="sp","updatedstudy"="updatedstudy")) %>%
   distinct(sp, updatedstudygroups, .keep_all=T) %>%
-  mutate(ridge_dens_est_cil = ridge_dens_est.mn - (ridge_dens_est.se*qnorm(0.975)),
-         ridge_dens_est_ciu = ridge_dens_est.mn + (ridge_dens_est.se*qnorm(0.975)))
+  mutate(ridge_dens_est_cil = `ridge_dens_est (1/m).mn` - (`ridge_dens_est (1/m).se`*qnorm(0.975)),
+         ridge_dens_est_ciu = `ridge_dens_est (1/m).mn` + (`ridge_dens_est (1/m).se`*qnorm(0.975)))
 
 #aggregate variables to predict ridge dens/species/site
 sp_level_ests <- aggregate(cbind(log_mass_st, log_roughness_st, mean_treecover,
-                                 mean_hfi, log_hr_st, inv_ess, seasonality_dhi_gpp_st, ridge_dens_est) ~ sp + updatedstudygroups, #mean_dhi_ndvi,  log_dhi_gpp,
+                                 mean_hfi, log_hr_st, inv_ess, seasonality_dhi_gpp_st, `ridge_dens_est (1/m`) ~ sp + updatedstudygroups, #mean_dhi_ndvi,  log_dhi_gpp,
                            data=study,
                            FUN = mean) %>%
   left_join(dplyr::select(ridge, c("sp", "clade", "pursuit", "disruptfast", "slowwalking", "hunting_movement")),
@@ -217,6 +222,8 @@ study_labs = c(Abrahms = "Tropical Savanna\nBotswana",
                Young = "Desert & Xeric Shrubland/\nTemperate Conifer Forest\nUtah, United States")
 
 #figure 4 version 1 (with confidence intervals)
+#actual version was put together by Dr. Anshuman Swain
+
 study_ests %>% 
   mutate(sp=ifelse(sp=="Canis mesomelas", "Lupulella mesomelas", sp),
          sp=str_replace(sp, " ", "\n"),

@@ -498,19 +498,28 @@ for (i in seq_along(days)) {
   
 }
 
-ridge <- read_csv("ridge/data/here") %>%
-  filter(sp!="Canis dingo") %>%
-  mutate(pack_hunting = as.factor(pack_hunting),
-         log_mass = log10(mass),
-         log_hr = log(area_ud_est),
+#get all clean ridge individuals
+ridge <- read_csv("ridge.csv") %>%
+  filter(`kept (y/n)` == "y") %>% #drop all dropped individuals
+  mutate(pursuit = as.factor(pursuit),
+         disruptfast = as.factor(disruptfast),
+         slowwalking = as.factor(slowwalking), 
+         #convert to factors bc they're read in as numerical
+         log_mass = log(`mass (g)`),
+         log_hr = log(`area_ud_est (m^2)`),
          inv_ess = 1/ess,
          log_roughness = log(mean_roughness),
          log_hfi = log(mean_hfi),
          log_dhi_gpp = log(mean_dhi_gpp),
          point = as.factor(1:length(id)),
-         log_ridge = log(ridge_dens_est),
-         hunting_movement = as.factor(hunting_movement),
-         hunting_cooperativity = as.factor(hunting_cooperativity)) %>%
+         log_ridge = log(`ridge_dens_est (1/m)`)) %>%
+  #standardize vars
+  mutate(log_mass_st=mosaic::zscore(log_mass),
+         log_hr_st=mosaic::zscore(log_hr),
+         log_roughness_st=mosaic::zscore(log_roughness),
+         seasonality_dhi_gpp_st=mosaic::zscore(seasonality_dhi_gpp),
+         speed_est_st=mosaic::zscore(`speed_est (m/s)`, na.rm=T),
+         mean_treecover=mean_treecover/100) %>%
   unite(c("id", "sp", "updatedstudy"), col="tojoin", sep="", remove=F) %>%
   dplyr::select("tojoin", "id", "sp", "updatedstudy", "clade")
 
@@ -524,8 +533,14 @@ days_full <- days_dat %>%
          Species = replace(Species, Species == "Panthera pardus ciscaucasica", "Panthera pardus"),
          Species = replace(Species, Species == "Lycalopex vetulus", "Pseudalopex vetulus"),
          Species = replace(Species, Species == "Panthera tigris tigris", "Panthera tigris"),
-         Species = replace(Species, Species == "Canis lupus dingo", "Canis dingo"))
-  filter(Species != "Canis dingo")
+         Species = replace(Species, Species == "Canis lupus dingo", "Canis dingo")) %>%
+  relocate(c(ID, Species, `Updated Study`, Study), .after=yeartracked) %>%
+  right_join(dplyr::select(ridge, c("id", "sp", "updatedstudy", "clade")),
+             by=c("ID"="id", "Species"="sp", "Updated Study"="updatedstudy"))
+
+#check individual counts (sum$n should be 1219)
+sum <- days_full %>% group_by(`Updated Study`, Species) %>% summarize(n=length(unique(ID)))
+sum(sum$n) #1219
 
 #by clade
 days_full %>%

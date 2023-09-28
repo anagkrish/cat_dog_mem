@@ -17,24 +17,26 @@ source("ranef.rma.mv.R") #hacked metafor function from Chris Fleming
 
 #load full csv
 ridge <- read_csv("ridge.csv") %>%
+  filter(`kept (y/n)` == "y") %>% #drop all dropped individuals
   mutate(pursuit = as.factor(pursuit),
          disruptfast = as.factor(disruptfast),
          slowwalking = as.factor(slowwalking), 
          #convert to factors bc they're read in as numerical
-         log_mass = log(mass),
-         log_hr = log(area_ud_est),
+         log_mass = log(`mass (g)`),
+         log_hr = log(`area_ud_est (m^2)`),
          inv_ess = 1/ess,
          log_roughness = log(mean_roughness),
          log_hfi = log(mean_hfi),
          log_dhi_gpp = log(mean_dhi_gpp),
          point = as.factor(1:length(id)),
-         log_ridge = log(ridge_dens_est)) %>%
+         log_ridge = log(`ridge_dens_est (1/m)`)) %>%
   #standardize vars
   mutate(log_mass_st=mosaic::zscore(log_mass),
          log_hr_st=mosaic::zscore(log_hr),
          log_roughness_st=mosaic::zscore(log_roughness),
          seasonality_dhi_gpp_st=mosaic::zscore(seasonality_dhi_gpp),
-         speed_est_st=mosaic::zscore(speed_est, na.rm=T))
+         speed_est_st=mosaic::zscore(`speed_est (m/s)`, na.rm=T),
+         mean_treecover=mean_treecover/100)
 
 #download tree from: https://github.com/n8upham/MamPhy_v1/blob/master/_DATA/MamPhy_fullPosterior_BDvr_Completed_5911sp_topoCons_NDexp_MCC_v2_target.tre
 tree_all <- read.nexus("/tree/file/here")
@@ -44,7 +46,7 @@ tree_all <- read.nexus("/tree/file/here")
 tree_all$tip.label <- sapply(tree_all$tip.label, function(x) str_extract(x, "[^_]*_[^_]*"))
 #rename canis mesomelas and pseudalopex vetulus in phylogeny
 tree_all$tip.label <- replace(tree_all$tip.label, which(tree_all$tip.label=="Canis_mesomelas"), "Lupulella_mesomelas")
-tree_all$tip.label <- replace(tree_all$tip.label, which(tree_all$tip.label=="Pseudalopex_vetulus"), "Lycalopex_vetula")
+tree_all$tip.label <- replace(tree_all$tip.label, which(tree_all$tip.label=="Pseudalopex_vetulus"), "Lycalopex_vetulus")
 
 #drop all tips except species in study and some other carnivora ingroups
 #phataginus: pangolin (closest outgroup relative to cats and dogs)
@@ -139,7 +141,7 @@ exp(ctmm:::norm.ci(DIFF, VAR.DIFF))
 
 sp_level_ests <- aggregate(cbind(log_mass_st, log_roughness_st, mean_treecover, 
                                  mean_hfi, log_hr_st, inv_ess, 
-                                 seasonality_dhi_gpp_st, ridge_dens_est) ~ sp, 
+                                 seasonality_dhi_gpp_st, `ridge_dens_est (1/m)`) ~ sp, 
                            data=ridge,
                            FUN = mean) %>%
   left_join(dplyr::select(ridge, c("sp", "clade", "pursuit", "disruptfast", "slowwalking", "hunting_movement")), 
@@ -192,14 +194,14 @@ d_avg <- sp_level_ests %>%
   #filter(sp %ni% c("Canis dingo", "Canis lupus x lycaon")) %>%
   mutate(sp=str_replace(sp, " ", "_")) %>%
   dplyr::select(c("sp", "ridge_dens_est")) %>%
-  rbind(cbind(sp="Phataginus_tetradactyla",ridge_dens_est=NA),
-        cbind(sp="Halichoerus_grypus",ridge_dens_est=NA),
-        cbind(sp="Enhydra_lutris",ridge_dens_est=NA),
-        cbind(sp="Herpestes_sanguineus",ridge_dens_est=NA),
-        cbind(sp="Ursus_americanus",ridge_dens_est=NA),
-        cbind(sp="Hyaena_hyaena",ridge_dens_est=NA)) #this paired with color scheme manually forces them to be grey
+  rbind(cbind(sp="Phataginus_tetradactyla",`ridge_dens_est (1/m)`=NA),
+        cbind(sp="Halichoerus_grypus",`ridge_dens_est (1/m)`=NA),
+        cbind(sp="Enhydra_lutris",`ridge_dens_est (1/m)`=NA),
+        cbind(sp="Herpestes_sanguineus",`ridge_dens_est (1/m)`=NA),
+        cbind(sp="Ursus_americanus",`ridge_dens_est (1/m)`=NA),
+        cbind(sp="Hyaena_hyaena",`ridge_dens_est (1/m)`=NA)) #this paired with color scheme manually forces them to be grey
 
-svl_avg <- parse_number(d_avg$ridge_dens_est)
+svl_avg <- parse_number(d_avg$`ridge_dens_est (1/m)`)
 names(svl_avg) <- d_avg$sp
 
 #predicted ridge vals
@@ -224,18 +226,6 @@ phylo_dat <- as.matrix(cbind("Average"=svl_avg, "Predicted"=svl_pred), row.names
 
 names <- data.frame(label = phylo$tip.label, label2 = str_replace(phylo$tip.label, "_", " "))
 phylo_plot <- full_join(phylo, names, by = "label")
-
-#get individual ridge/UD plots
-
-for (i in seq_along(AKDES)) {
-  
-  length_m <-  tryCatch({rgeos::gLength(allridge[[i]]) },
-                        error= function(e) { length_m <- 0 })
-  dens_m <- length_m^2/summary(AKDES[[i]], units=F)$CI[[2]]
-  print(paste(AKDES[[i]]@info$identity, summary(AKDES[[i]], units=F)$CI[[2]], length_m, dens_m))
-  
-  
-}
 
 #load akdes/allridge from pre-calculated files (will add og code soon)
 

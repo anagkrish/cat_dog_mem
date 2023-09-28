@@ -17,24 +17,26 @@ source("ranef.rma.mv.R") #hacked metafor function from Chris Fleming
 
 #load full csv
 ridge <- read_csv("ridge.csv") %>%
+  filter(`kept (y/n)` == "y") %>% #drop all dropped individuals
   mutate(pursuit = as.factor(pursuit),
          disruptfast = as.factor(disruptfast),
          slowwalking = as.factor(slowwalking), 
          #convert to factors bc they're read in as numerical
-         log_mass = log(mass),
-         log_hr = log(area_ud_est),
+         log_mass = log(`mass (g)`),
+         log_hr = log(`area_ud_est (m^2)`),
          inv_ess = 1/ess,
          log_roughness = log(mean_roughness),
          log_hfi = log(mean_hfi),
          log_dhi_gpp = log(mean_dhi_gpp),
          point = as.factor(1:length(id)),
-         log_ridge = log(ridge_dens_est)) %>%
+         log_ridge = log(`ridge_dens_est (1/m)`)) %>%
   #standardize vars
   mutate(log_mass_st=mosaic::zscore(log_mass),
          log_hr_st=mosaic::zscore(log_hr),
          log_roughness_st=mosaic::zscore(log_roughness),
          seasonality_dhi_gpp_st=mosaic::zscore(seasonality_dhi_gpp),
-         speed_est_st=mosaic::zscore(speed_est, na.rm=T))
+         speed_est_st=mosaic::zscore(`speed_est (m/s)`, na.rm=T),
+         mean_treecover=mean_treecover/100)
 
 #download tree from: https://github.com/n8upham/MamPhy_v1/blob/master/_DATA/MamPhy_fullPosterior_BDvr_Completed_5911sp_topoCons_NDexp_MCC_v2_target.tre
 tree_all <- read.nexus("/tree/file/here")
@@ -44,7 +46,7 @@ tree_all <- read.nexus("/tree/file/here")
 tree_all$tip.label <- sapply(tree_all$tip.label, function(x) str_extract(x, "[^_]*_[^_]*"))
 #rename canis mesomelas and pseudalopex vetulus in phylogeny
 tree_all$tip.label <- replace(tree_all$tip.label, which(tree_all$tip.label=="Canis_mesomelas"), "Lupulella_mesomelas")
-tree_all$tip.label <- replace(tree_all$tip.label, which(tree_all$tip.label=="Pseudalopex_vetulus"), "Lycalopex_vetula")
+tree_all$tip.label <- replace(tree_all$tip.label, which(tree_all$tip.label=="Pseudalopex_vetulus"), "Lycalopex_vetulus")
 
 #drop all tips except species in study and some other carnivora ingroups
 #phataginus: pangolin (closest outgroup relative to cats and dogs)
@@ -295,14 +297,14 @@ plot(panel_a)
 
 ###################################################
 #clade reldiff across various subsets
-ridgedensreldiffs <- read_csv("final/mod/fits/file/here") #add cleaned version to repo
+ridgedensreldiffs <- read_csv("mod_comps.csv") #summary statistics for each of the ridge subsets
 
 panel_b <- ridgedensreldiffs %>%
   filter(version!="same species diff landscape") %>%
   mutate_at(c("clade_reldiff_low", "clade_reldiff_est", "clade_reldiff_high"), 
             function (x) {return(x-1)}) %>%
-  mutate(version = factor(version, levels = c("FULL", "dna only tree", "speed included", "untouched dat",
-                                              "duration >1yr", "shared landscape"))) %>%
+  mutate(version = factor(version, levels = c("full", "dna only", "speed inc", 
+                                              "clean", "duration > 1yr", "same landscape"))) %>%
   ggplot(mapping=aes(x=version, y=clade_reldiff_est)) +
   geom_point(size = 2, position=position_dodge(width=0.5)) +
   geom_errorbar(mapping=aes(ymin=clade_reldiff_low, ymax=clade_reldiff_high),
@@ -312,13 +314,11 @@ panel_b <- ridgedensreldiffs %>%
   scale_x_discrete(breaks = c("full", "dna only", "speed inc", "clean",
                               "duration >1 yr", "shared landscape"), 
                    labels = c("Full", "DNA Only\nTree", "Speed\nIncluded", "No\nPreprocessing",
-                              "Year or\nLonger", "Shared\nLandscapes")) +
+                              "Year or\nLonger", "Shared\nLandscapes"))  +
   geom_hline(mapping=aes(yintercept = 0), linetype="dashed") +
-  geom_text(aes(label = c("N=1219\nC=16\nF=18", "N=1064\nC=16\nF=18", "N=1011\nC=16\nF=18",
-                          "N=1183\nC=15\nF=17", "N=338\nC=13\nF=16", "N=216\nC=7\nF=7"),
-                y = rep(c(0.05), times = 6)), size=3) +
-  # geom_text(aes(label = c("N=1219\nC=16\nc", "N=1011",  "N=1183", "N=1064", "N=338", "N=216"), 
-  #               y = rep(c(0.1), times = 6)), size=3) +
+  geom_text(aes(label = c("N=1219\nC=16\nF=18", "N=1011\nC=16\nF=18", "N=1183\nC=15\nF=17", 
+                          "N=1064\nC=16\nF=18", "N=338\nC=13\nF=16", "N=216\nC=7\nF=7"),
+                y = rep(c(0.045), times = 6)), size=3) +
   scale_y_continuous(limits=c(0, 0.6), breaks = c(0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6), 
                      labels = c("0%","10%","20%","30%", "40%", "50%", "60%")) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),

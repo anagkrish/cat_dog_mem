@@ -20,22 +20,26 @@ source("~ranef.rma.mv.R")
 
 #########################
 ridge <- read_csv("ridge.csv") %>%
+  filter(`kept (y/n)` == "y") %>% #drop all dropped individuals
   mutate(pursuit = as.factor(pursuit),
          disruptfast = as.factor(disruptfast),
-         slowwalking = as.factor(slowwalking), #convert to factors bc they're read in as numerical
-         log_mass = log(mass), #log10(mass)
-         log_hr = log(area_ud_est),
+         slowwalking = as.factor(slowwalking), 
+         #convert to factors bc they're read in as numerical
+         log_mass = log(`mass (g)`),
+         log_hr = log(`area_ud_est (m^2)`),
          inv_ess = 1/ess,
          log_roughness = log(mean_roughness),
          log_hfi = log(mean_hfi),
          log_dhi_gpp = log(mean_dhi_gpp),
          point = as.factor(1:length(id)),
-         log_ridge = log(ridge_dens_est)) %>%
+         log_ridge = log(`ridge_dens_est (1/m)`)) %>%
+  #standardize vars
   mutate(log_mass_st=mosaic::zscore(log_mass),
          log_hr_st=mosaic::zscore(log_hr),
          log_roughness_st=mosaic::zscore(log_roughness),
          seasonality_dhi_gpp_st=mosaic::zscore(seasonality_dhi_gpp),
-         speed_est_st=mosaic::zscore(speed_est, na.rm=T))
+         speed_est_st=mosaic::zscore(`speed_est (m/s)`, na.rm=T),
+         mean_treecover=mean_treecover/100)
 
 #download tree from: https://github.com/n8upham/MamPhy_v1/blob/master/_DATA/MamPhy_fullPosterior_BDvr_Completed_5911sp_topoCons_NDexp_MCC_v2_target.tre
 tree_all <- read.nexus("/tree/file/here")
@@ -45,7 +49,7 @@ tree_all <- read.nexus("/tree/file/here")
 tree_all$tip.label <- sapply(tree_all$tip.label, function(x) str_extract(x, "[^_]*_[^_]*"))
 #rename canis mesomelas and pseudalopex vetulus in phylogeny
 tree_all$tip.label <- replace(tree_all$tip.label, which(tree_all$tip.label=="Canis_mesomelas"), "Lupulella_mesomelas")
-tree_all$tip.label <- replace(tree_all$tip.label, which(tree_all$tip.label=="Pseudalopex_vetulus"), "Lycalopex_vetula")
+tree_all$tip.label <- replace(tree_all$tip.label, which(tree_all$tip.label=="Pseudalopex_vetulus"), "Lycalopex_vetulus")
 
 ###E1. Effective Sizes
 #to get ess, run best fit model on each subset of data and then run below code:
@@ -66,81 +70,79 @@ tree_all$tip.label <- replace(tree_all$tip.label, which(tree_all$tip.label=="Pse
 #          lb = estimate - (std.error*qnorm(0.975)))
 # 
 # for (i in seq_along(tidy$term)) {
-#   
-#   if (tidy$term[[i]] == "speed_est") {
-#     effsizes <- rbind(effsizes, 
-#                       c(subs, "Speed\n(m/s)", 1 - exp(c(tidy$lb[[i]], tidy$estimate[[i]], tidy$ub[[i]])), 
-#                         "Model Coefficient", "Model Coefficient"))
-#   }
-#   
-#   if (tidy$term[[i]] == "log_mass") {
-#     effsizes <- rbind(effsizes, 
-#                       c(subs, "Mass (g)", (1 - exp(c(tidy$lb[[i]], tidy$estimate[[i]], tidy$ub[[i]])))/exp(1), 
-#                         "Model Coefficient", "Model Coefficient"))
-#   }
-#   
-#   if (tidy$term[[i]] == "pursuit1") {
-#     effsizes <- rbind(effsizes, 
-#                       c(subs, "Hunting Movement \n(Pursuit)", 
-#                         1 - exp(c(tidy$lb[[i]], tidy$estimate[[i]], tidy$ub[[i]])), 
-#                         "Model Coefficient", "Model Coefficient"))
-#   }
-#   
-#   if (tidy$term[[i]] == "disruptfast1") {
-#     effsizes <- rbind(effsizes, 
-#                       c(subs, "Hunting Movement \n(Disruptive Fast)", 
-#                         1 - exp(c(tidy$lb[[i]], tidy$estimate[[i]], tidy$ub[[i]])), 
-#                         "Model Coefficient", "Model Coefficient"))
-#   }
-#   
-#   if (tidy$term[[i]] == "slowwalking1") {
-#     effsizes <- rbind(effsizes, 
-#                       c(subs, "Hunting Movement \n(Slow Walking)", 
-#                         1 - exp(c(tidy$lb[[i]], tidy$estimate[[i]], tidy$ub[[i]])), 
-#                         "Model Coefficient", "Model Coefficient"))
-#   }
-#   
-#   
-#   if (tidy$term[[i]] == "log_hr") {
-#     effsizes <- rbind(effsizes, 
-#                       c(subs, "Home Range \nArea (m²)", 
-#                         (1 - exp(c(tidy$lb[[i]], tidy$estimate[[i]], tidy$ub[[i]])))/exp(1), 
-#                         "Model Coefficient", "Model Coefficient"))
-#   }
-#   
-#   if (tidy$term[[i]] == "log_roughness") {
-#     effsizes <- rbind(effsizes, 
-#                       c(subs, "Terrain \nRoughness (m)", 
-#                         (1 - exp(c(tidy$lb[[i]], tidy$estimate[[i]], tidy$ub[[i]])))/exp(1), 
-#                         "Model Coefficient", "Model Coefficient"))
-#   }
-#   
-#   if (tidy$term[[i]] == "log_hfi") {
-#     effsizes <- rbind(effsizes, 
-#                       c(subs, "Human Footprint Index (%)", 
-#                         (1 - exp(c(tidy$lb[[i]], tidy$estimate[[i]], tidy$ub[[i]])))/exp(1), 
-#                         "Model Coefficient", "Model Coefficient"))
-#   }
-#   
-#   if (tidy$term[[i]] == "mean_treecover") {
-#     effsizes <- rbind(effsizes, 
-#                       c(subs, "Tree Cover (%)", 1 - exp(c(tidy$lb[[i]], tidy$estimate[[i]], tidy$ub[[i]])), 
-#                         "Model Coefficient", "Model Coefficient"))
-#   }
-#   
-#   if (tidy$term[[i]] == "mean_road_cover") {
-#     effsizes <- rbind(effsizes, 
-#                       c(subs, "Road Cover (%)", 1 - exp(c(tidy$lb[[i]], tidy$estimate[[i]], tidy$ub[[i]])), 
-#                         "Model Coefficient", "Model Coefficient"))
-#   }
-#   
-#   if (tidy$term[[i]] == "seasonality_dhi_gpp") {
-#     effsizes <- rbind(effsizes, 
-#                       c(subs, "Dynamic Habitat Index\n(Gross Primary Productivity)\n(kg C/m²))", 
-#                         1 - exp(c(tidy$lb[[i]], tidy$estimate[[i]], tidy$ub[[i]])), 
-#                         "Model Coefficient", "Model Coefficient"))
-#   }
-#   
+# if (tidy$term[[i]] %in% c("speed_est_st")) {
+#   effsizes <- rbind(effsizes, 
+#                     c(subs, tidy$term[[i]], 
+#                       get_coefs(filter(tidy, term==tidy$term[[i]])), 
+#                       "Model Coefficient", "Model Coefficient"))
+# }
+# 
+# if (tidy$term[[i]] %in% c("log_mass_st")) {
+#   effsizes <- rbind(effsizes, 
+#                     c(subs, tidy$term[[i]], 
+#                       get_coefs(filter(tidy, term==tidy$term[[i]])), 
+#                       "Model Coefficient", "Model Coefficient"))
+# }
+# 
+# if (tidy$term[[i]] == "pursuit1") {
+#   effsizes <- rbind(effsizes, 
+#                     c(subs, tidy$term[[i]],
+#                       get_coefs(filter(tidy, term==tidy$term[[i]])), 
+#                       "Model Coefficient", "Model Coefficient"))
+# }
+# 
+# if (tidy$term[[i]] == "disruptfast1") {
+#   effsizes <- rbind(effsizes, 
+#                     c(subs, tidy$term[[i]], 
+#                       get_coefs(filter(tidy, term==tidy$term[[i]])), 
+#                       "Model Coefficient", "Model Coefficient"))
+# }
+# 
+# if (tidy$term[[i]] == "slowwalking1") {
+#   effsizes <- rbind(effsizes, 
+#                     c(subs, tidy$term[[i]],
+#                       get_coefs(filter(tidy, term==tidy$term[[i]])), 
+#                       "Model Coefficient", "Model Coefficient"))
+# }
+# 
+# 
+# if (tidy$term[[i]] %in% c("log_hr_st")) {
+#   effsizes <- rbind(effsizes, 
+#                     c(subs, tidy$term[[i]], 
+#                       (get_coefs(filter(tidy, term==tidy$term[[i]]))), 
+#                       "Model Coefficient", "Model Coefficient"))
+# }
+# 
+# 
+# if (tidy$term[[i]] %in% c("log_roughness_st")) {
+#   effsizes <- rbind(effsizes, 
+#                     c(subs, tidy$term[[i]], 
+#                       (get_coefs(filter(tidy, term==tidy$term[[i]]))), 
+#                       "Model Coefficient", "Model Coefficient"))
+# }
+# 
+# if (tidy$term[[i]] == "mean_hfi") {
+#   effsizes <- rbind(effsizes, 
+#                     c(subs, tidy$term[[i]], 
+#                       (get_coefs(filter(tidy, term==tidy$term[[i]]))), 
+#                       "Model Coefficient", "Model Coefficient"))
+# }
+# 
+# if (tidy$term[[i]] == "mean_treecover") {
+#   effsizes <- rbind(effsizes, 
+#                     c(subs, tidy$term[[i]], 
+#                       get_coefs(filter(tidy, term==tidy$term[[i]])), 
+#                       "Model Coefficient", "Model Coefficient"))
+# }
+# 
+# if (tidy$term[[i]] %in% c("seasonality_dhi_gpp_st")) {
+#   effsizes <- rbind(effsizes, 
+#                     #c(subs, "Dynamic Habitat Index\n(Gross Primary Productivity)\n(kg C/m²))", 
+#                     c(subs, tidy$term[[i]], 
+#                       get_coefs(filter(tidy, term==tidy$term[[i]])), 
+#                       "Model Coefficient", "Model Coefficient"))
+# }
+# 
 # }
 # 
 # colnames(effsizes) = c("subset", "var", "low", "est", "high", "type", "color")
@@ -151,26 +153,54 @@ effsizes <- read_csv("effect/size/here") %>%
          color=ifelse(color=="Model Coefficient", "Model Coefficients and Effects", color)) %>%
   mutate(var=ifelse(var=="Human Footprint Index (%)", "Human Footprint\nIndex (%)", var))
 
+#modify for display and naming purposes
+effsizes <- effsizes %>% 
+  mutate(type=ifelse(type=="Model Coefficient", "Model Coefficients and Effects", type),
+         color=ifelse(color=="Model Coefficient", "Model Coefficients and Effects", color),
+         name=var) %>%
+  mutate(name=ifelse(var=="log_mass_st", "Mass (g)\\*",
+                     ifelse(var=="pursuit1", "Hunting Movement<br>(Pursuit)",
+                     ifelse(var=="disruptfast1", "Hunting Movement<br>(Disruptive Fast)",
+                     ifelse(var=="slowwalking1", "Hunting Movement<br>(Slow Walking)",
+                     ifelse(var=="log_hr_st", "Home Range<br>Area (m²)\\*",
+                     ifelse(var=="log_roughness_st", "Terrain<br>Roughness (m)\\*",
+                     ifelse(var=="mean_hfi", "Human Footprint Index (%)",
+                     ifelse(var=="mean_treecover", "Tree Cover (%)",
+                     ifelse(var=="seasonality_dhi_gpp_st", 
+                            "Dynamic Habitat Index<br>(Gross Primary Productivity)<br>(kg C/m²))\\*",
+                     ifelse(var=="speed_est", "Speed<br>(m/s)\\*", name)))))))))))
+
+
 `SUBSET NAME` <- effsizes %>% #plot object name corresponds to subset: full, dna, speed, clean, year
   filter(subset%in%c("subset name here")) %>%
-  mutate(subset = factor(subset, levels = c("FULL", "dna only", "speed", 
-                                            "untouched dat", "full year", "shared landscape"),
+  mutate(subset = factor(subset, levels = c("full", "dna only", "speed inc", 
+                                            "clean", "duration > 1yr", "same landscape"),
                          labels = c("Full", "DNA Only Tree", "Speed Included", 
-                                    "No Preprocessing", "Year or Longer", "Shared Landscapes")),
-         var = factor(var, levels=rev(unique(effsizes$var)))) %>% #flip list
-  mutate_at(c("low","est","high"), function(x){x*100}) %>%
-  ggplot(mapping=aes(x=est, y = var, color = color)) +
+                                    "No Preprocessing", "Year or Longer", "Shared Landscapes"))) %>%
+  mutate(textcol = ifelse(var %in% c("Phylogenetic", "Individual", "Phylogenetic<br>(Clade)"), "**", 
+                          #phylo/rand effects
+                          ifelse(var %in% c("log_mass_st", "log_hr_st", "log_roughness_st"), "***",
+                          #log transformed vars
+                          ifelse(var %in% c("pursuit1", "disruptfast1", "slowwalking1"), "_", 
+                          #indicator vars
+                          ifelse(var %in% c("mean_hfi", "mean_treecover", "seasonality_dhi_gpp_st", "speed_est"), "", NA))))) %>%
+                          #no transformation (not including standardization)
+  mutate(label = paste(textcol, name, textcol, sep = ""),
+         label = fct_reorder(label, rev(sort(as.character(label))))) %>%
+  ggplot(mapping=aes(x=est, y = label, color = color)) +
   geom_point() +
   geom_errorbar(mapping=aes(xmin=low, xmax=high)) +
   geom_vline(mapping=aes(xintercept=0), linetype="dashed") +
   labs(x="Effect Size (Percent Increase in Ridge Density)", y = NULL, color = NULL) +
-  scale_color_manual(values=c("Model Coefficients and Effects"="#5ac85a","Biological Variance"="#D2AAF0")) +
-  facet_grid(type~., scales="free", space="free") +
-  ggforce::facet_col(type~., scales = 'free', space = 'free') +
+  scale_x_continuous(labels = scales::percent) +
+  scale_color_manual(values=c("Model Coefficients and Effects"="#5ac85a","Biological Variance"="#6d2f9c")) +
   theme_bw() +
   theme(legend.direction = "horizontal",
         legend.position = "none",
-        text=element_text(size=15))
+        text=element_text(size=15),
+        axis.text.y=element_markdown()) +
+  facet_grid(type~., scales="free", space="free") +
+  ggforce::facet_col(type~., scales = 'free', space = 'free')
 
 p <- cowplot::plot_grid(dna + labs(subtitle="\nDNA Only Tree (N=1183, C=15, F=17)") + theme(axis.title.x=element_blank()), 
                         speed + labs(subtitle="\nSpeed Included (N=1011, C=16, F=18)") + theme(axis.title.x=element_blank()), 
@@ -258,14 +288,17 @@ exp(ctmm:::norm.ci(DIFF, VAR.DIFF))
 
 #get phylo model predictions  for landscape
 study_ests <- do.call(data.frame,
-                      aggregate(cbind(log_hr, inv_ess, ridge_dens_est) ~ sp + updatedstudy, 
+                      aggregate(cbind(log_mass_st,
+                                      log_hr_st, inv_ess, log_roughness_st,
+                                      mean_treecover,  mean_hfi, 
+                                      seasonality_dhi_gpp_st,
+                                      ridge_dens_est) ~ sp + updatedstudy, 
                                 data=speciesdifflandscape,
-                                FUN = function(x) c(mn = mean(x), se = (sd(x)/sqrt(length((x))))))) %>%
-  left_join(dplyr::select(ridge, c("sp","updatedstudy","clade")),
-            by=c("sp"="sp","updatedstudy"="updatedstudy")) %>%
-  distinct(sp, updatedstudy, .keep_all=T) %>%
-  mutate(ridge_dens_est_cil = ridge_dens_est.mn - (ridge_dens_est.se*qnorm(0.975)),
-         ridge_dens_est_ciu = ridge_dens_est.mn + (ridge_dens_est.se*qnorm(0.975)))
+                                FUN = mean)) %>%
+  left_join(dplyr::select(speciesdifflandscape, 
+                          c("sp", "clade", "pursuit", 
+                            "disruptfast", "slowwalking", "hunting_movement"))) %>%
+  distinct(sp, updatedstudy, .keep_all=T)
 
 
 for (i in seq_along(study_ests$sp)) {
@@ -277,10 +310,21 @@ for (i in seq_along(study_ests$sp)) {
   SLOPE.VAR <- RCOV[str_replace(species, " ", "_"), str_replace(species, " ", "_")]
   
   #get avg vars
-  log_hr <- (study_ests %>% filter(sp==species, updatedstudy==st))$log_hr.mn
-  inv_ess <- (study_ests %>% filter(sp==species, updatedstudy==st))$inv_ess.mn
+  log_mass <- (study_ests %>% filter(sp==species, updatedstudy==st))$log_mass_st
+  log_hr <- (study_ests %>% filter(sp==species, updatedstudy==st))$log_hr_st
+  inv_ess <- (study_ests %>% filter(sp==species, updatedstudy==st))$inv_ess
+  log_roughness <- (study_ests %>% filter(sp==species, updatedstudy==st))$log_roughness_st
+  mean_treecover <- (study_ests %>% filter(sp==species, updatedstudy==st))$mean_treecover
+  mean_hfi <- (study_ests %>% filter(sp==species, updatedstudy==st))$mean_hfi
+  seasonality_dhi_gpp <- (study_ests %>% filter(sp==species, updatedstudy==st))$seasonality_dhi_gpp_st
+  #indicator vars for movement (need to set vars manually >:())
+  pursuit <- ifelse((study_ests %>% filter(sp==species, updatedstudy==st))$pursuit==1, 1, 0)
+  disruptfast <- ifelse((study_ests %>% filter(sp==species, updatedstudy==st))$disruptfast==1, 1, 0)
+  #slowwalking dropped due to redundancy (probably due to small subset of species)
+  # slowwalking <- ifelse((study_ests %>% filter(sp==species, updatedstudy==st))$slowwalking==1, 1, 0)
   
-  GRAD <- c(1, log_hr, inv_ess)
+  GRAD <- c(1, log_mass, pursuit, disruptfast, 
+            log_hr, inv_ess, log_roughness, mean_treecover, mean_hfi,seasonality_dhi_gpp)
   
   EST <- GRAD %*% FIT$beta + SLOPE.EST
   
@@ -296,7 +340,7 @@ for (i in seq_along(study_ests$sp)) {
 }
 
 
-biomes <- readxl::read_excel("/Users/anankekrishnan/Documents/faganlab2022/cat dog mem/biomes_samelandscape.xlsx") %>%
+biomes <- readxl::read_excel("biomes.csv") %>% #biomes extracted from RESOLVE ecoregions map in arcGIS online
   mutate(identifier = replace_na(as.character(identifier), ""),
          sp=ifelse(sp=="Canis mesomelas", "Lupulella mesomelas", sp))
 
@@ -313,6 +357,7 @@ levels <- levels %>%
   str_replace_all("_"," ") %>%
   replace(which(levels=="Canis mesomelas"), "Lupulella mesomelas") %>%
   unique()
+levels <- append(levels, " ", after=10)
 
 #get landscape-level predictions for each mod
 species_summary_all <- data.frame("mod"=NA, "species"=NA, "term"=NA, 
@@ -339,7 +384,7 @@ for (species in species_dat) {
   
   species_summary_all <- rbind(species_summary_all, species_summary)
   
-  species_ests <- aggregate(cbind(log_hr, inv_ess, ridge_dens_est) ~ sp + updatedstudy + landscape, 
+  species_ests <- aggregate(cbind(log_hr, inv_ess, `ridge_dens_est (1/m)`) ~ sp + updatedstudy + landscape, 
                             data=species,
                             FUN = mean)
   
@@ -393,18 +438,18 @@ for (species in species_dat) {
 species_ests_all_toplot <- species_ests_all %>%
   left_join(dplyr::distinct(speciesdifflandscape, sp, clade), by = c("sp"="sp")) %>%
   mutate(clade=ifelse(sp=="Lupulella mesomelas", "canidae", clade)) %>%
-  mutate(updatedstudy=ifelse(updatedstudy=="Oliveira-Santos.Dataset1", "Oliveira-Santos", updatedstudy)) %>%
   unite("breaks", sp, updatedstudy, sep=" ", remove=F)
 
 #make figure E2
-study_ests_plot %>%
+speciesdifflandscape %>%
+  mutate(sp=ifelse(sp=="Canis mesomelas", "Lupulella mesomelas", sp),
+         clade=paste(clade, "full", sep=" ")) %>%
   unite("breaks", sp, updatedstudy, sep=" ", remove=F) %>%
-  mutate(sp=factor(sp, levels=levels),
-         clade=paste(clade, "full", sep=" ")) %>% #make sure names are standardized to this subset of data
-  ggplot(mapping=aes(x=breaks)) +
-  #95% CI from data
-  geom_errorbar(mapping=aes(ymin=ridge_dens_est_cil, ymax=ridge_dens_est_ciu), 
-                width=0.25, color="#ABB0B8", linewidth=1.1) +
+  mutate(sp=factor(sp, levels=levels)) %>% #make sure names are standardized to this subset of data
+  ggplot(mapping=aes(x=breaks,
+                     y=ridge_dens_est, fill=clade)) +
+  #distribution of points per species per landscape
+  geom_violin(alpha = 0.5, show.legend=FALSE) +
   #est from simple (non phylo) model
   geom_point(data= mutate(filter(species_ests_all_toplot, mod == "indicator + model"),
                           sp=factor(sp, levels=levels),
@@ -421,14 +466,25 @@ study_ests_plot %>%
   geom_point(mapping=aes(x=breaks, 
                          y=pred_ridge, fill=clade), 
              size=4, shape = 24) + #get mean pred_ridge, they're actually very close
-  scale_color_manual(name=NULL, values=c("canidae landscape"="blue",
+  scale_color_manual(name=NULL, values=c("canidae full"=NULL,
+                                         "canidae landscape"="blue",
+                                         "felidae full"=NULL,
                                          "felidae landscape"="red"),
-                     labels=c("Canidae (Landscape model estimates/\nconfidence intervals)",
-                              "Felidae (Landscape model estimates/\nconfidence intervals)")) +
-  scale_fill_manual(name=NULL, values=c("canidae full"="blue",
-                                        "felidae full"="red"),
-                    labels=c("Canidae (Full model estimates)",
-                             "Felidae (Full model estimates)")) +
+                     labels=c(NULL, "Canidae (Species-specific model\nestimates/confidence intervals)", 
+                              NULL, "Felidae (Species-specific model\nestimates/confidence intervals)")) +
+  geom_point(data= mutate(study_ests_plot,
+                          sp=ifelse(sp=="Canis mesomelas", "Lupulella mesomelas", sp),
+                          sp=factor(sp, levels=levels),
+                          clade=paste(clade, "full", sep=" ")), 
+             mapping=aes(x=breaks, 
+                         y=pred_ridge, color=NULL, fill=clade), 
+             size=4, shape = 24) + #get mean pred_ridge, they're actually very close
+  scale_fill_manual(name="Clade", values=c("canidae full"="blue",
+                                           "canidae landscape"=NULL,
+                                           "felidae full"="red",
+                                           "felidae landscape"=NULL),
+                    labels=c("Canidae (Phylogenetic model estimates)", NULL,
+                             "Felidae (Phylogenetic model estimates)", NULL)) +
   scale_shape_manual(name=NULL, values=c("canidae full"=24,
                                          "canidae landscape"=4,
                                          "felidae full"=24,
@@ -439,12 +495,12 @@ study_ests_plot %>%
                         sp=factor(sp, levels=levels)), 
             aes(label = c(rep("",41), "***", rep("", 5), "*", ""), 
                 y = c(rep(1,41), 40, rep(1,5), 190, 1)), size=10) +
-  labs(x=NULL, y="Ridge Density",fill=NULL,color=NULL,
-       caption="Gray error-bars represent \n95% confidence intervals of the raw data") +
+  labs(x=NULL, y="Ridge Density",fill=NULL,color=NULL) +
   theme_bw() +
-  facet_wrap(~sp, ncol=2, nrow=6, scales="free") +
+  facet_wrap(~sp, ncol=2, nrow=6, scales="free", drop=F) +
   theme(text=element_text(size=19),
-        legend.position = c(0.72, 0.08), #c(0,0) bottom left, c(1,1) top-right.
+        legend.position = c(0.22, 0.065), #c(0,0) bottom left, c(1,1) top-right.
+        strip.background = element_blank(),
         legend.background = element_rect(fill = "white", colour = NA),
         legend.direction="vertical") +
   guides(fill = guide_legend(order=1, override.aes = list(shape = 24, stroke=1)),
@@ -454,8 +510,9 @@ study_ests_plot %>%
 ###E3. Species level Predicted Means (full dataset, best model)
 
 #aggregate predictors (will lead to some inaccuracy bc some species are across mult landscape but its the best we can do)
-sp_level_ests <- aggregate(cbind(log_mass, log_roughness, mean_treecover, 
-                                 mean_road_cover, log_hr, inv_ess, log_dhi_gpp, ridge_dens_est) ~ sp, #mean_dhi_ndvi,  log_dhi_gpp,
+sp_level_ests <- aggregate(cbind(log_mass_st, log_roughness_st, mean_treecover, 
+                                 mean_hfi, log_hr_st, inv_ess, 
+                                 seasonality_dhi_gpp_st, ridge_dens_est) ~ sp, #mean_dhi_ndvi,  log_dhi_gpp,
                            data=ridge,
                            FUN = mean) %>%
   left_join(dplyr::select(ridge, c("sp", "clade", "pursuit", "disruptfast", "slowwalking", "hunting_movement")), 
@@ -472,18 +529,21 @@ for (i in seq_along(sp_level_ests$sp)) {
   SLOPE.VAR <- RCOV[str_replace(species, " ", "_"), str_replace(species, " ", "_")]
   
   #get avg vars
-  log_mass <- (sp_level_ests %>% filter(sp==species))$log_mass
-  log_roughness <- (sp_level_ests %>% filter(sp==species))$log_roughness
+  log_mass_st <- (sp_level_ests %>% filter(sp==species))$log_mass_st
+  log_roughness_st <- (sp_level_ests %>% filter(sp==species))$log_roughness_st
   mean_treecover <- (sp_level_ests %>% filter(sp==species))$mean_treecover
-  mean_road_cover <- (sp_level_ests %>% filter(sp==species))$mean_road_cover
-  log_hr <- (sp_level_ests %>% filter(sp==species))$log_hr
+  mean_hfi <- (sp_level_ests %>% filter(sp==species))$mean_hfi
+  seasonality_dhi_gpp_st <- (sp_level_ests %>% filter(sp==species))$seasonality_dhi_gpp_st
+  log_hr_st <- (sp_level_ests %>% filter(sp==species))$log_hr_st
   inv_ess <- (sp_level_ests %>% filter(sp==species))$inv_ess
+  #indicator vars for movement (need to set vars manually >:())
   pursuit <- ifelse((sp_level_ests %>% filter(sp==species))$pursuit==1, 1, 0)
   disruptfast <- ifelse((sp_level_ests %>% filter(sp==species))$disruptfast==1, 1, 0)
   slowwalking <- ifelse((sp_level_ests %>% filter(sp==species))$slowwalking==1, 1, 0)
   
-  GRAD <- c(1, log_mass, pursuit, disruptfast, slowwalking,
-            log_hr, inv_ess, log_roughness, mean_treecover, mean_road_cover)
+  GRAD <- c(1, log_mass_st, pursuit, disruptfast, slowwalking,
+            log_hr_st, inv_ess, log_roughness_st, mean_treecover, mean_hfi, seasonality_dhi_gpp_st)
+  
   
   EST <- GRAD %*% FIT$beta + SLOPE.EST
   
@@ -501,7 +561,7 @@ for (i in seq_along(sp_level_ests$sp)) {
 
 #make violin plot with actual vs predicted values
 ggplot() +
-  geom_violin(data = ridge, mapping=aes(x=sp,y=ridge_dens_est, fill=clade), alpha=0.5, width = 1.5) +
+  geom_violin(data = ridge, mapping=aes(x=sp,y=`ridge_dens_est (1/m)`, fill=clade), alpha=0.5, width = 1.5) +
   geom_point(data = sp_level_ests, mapping=aes(x=sp, y=pred_ridge, color=clade, shape=hunting_movement), size=5) +
   scale_fill_manual(name="Clade", values=c("canidae"="blue","felidae"="red"), labels=c("Canidae", "Felidae")) +
   scale_color_manual(name="Clade", values=c("canidae"="blue","felidae"="red"), labels=c("Canidae", "Felidae")) +

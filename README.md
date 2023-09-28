@@ -14,3 +14,4 @@ This repo contains the code and additional data required to reproduce the result
 figure scripts: contains R code to run analyses and reproduce all figures in text and supplements.
 
 main figures: .png files of all figures in main text
+supp figures: .png files of all figures in supplementary text

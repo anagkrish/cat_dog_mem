@@ -1,5 +1,3 @@
-###not yet updated to most recent figure as of 9/8 
-
 library(tidyverse)
 library(ctmm)
 library(lubridate)
@@ -8,56 +6,128 @@ library(dplyr)
 library(geodist)
 library(raster)
 library(geosphere)
-library(ggmap)
-library(poisspatial)
 library(foreach)
 library(snow)
 library(doSNOW)
 
 #load full csv
 ridge <- read_csv("ridge.csv") %>%
+  filter(`kept (y/n)` == "y") %>% #drop all dropped individuals
   mutate(pursuit = as.factor(pursuit),
          disruptfast = as.factor(disruptfast),
          slowwalking = as.factor(slowwalking), 
          #convert to factors bc they're read in as numerical
-         log_mass = log(mass),
-         log_hr = log(area_ud_est),
+         log_mass = log(`mass (g)`),
+         log_hr = log(`area_ud_est (m^2)`),
          inv_ess = 1/ess,
          log_roughness = log(mean_roughness),
          log_hfi = log(mean_hfi),
          log_dhi_gpp = log(mean_dhi_gpp),
          point = as.factor(1:length(id)),
-         log_ridge = log(ridge_dens_est)) %>%
+         log_ridge = log(`ridge_dens_est (1/m)`)) %>%
   #standardize vars
   mutate(log_mass_st=mosaic::zscore(log_mass),
          log_hr_st=mosaic::zscore(log_hr),
          log_roughness_st=mosaic::zscore(log_roughness),
          seasonality_dhi_gpp_st=mosaic::zscore(seasonality_dhi_gpp),
-         speed_est_st=mosaic::zscore(speed_est, na.rm=T))
+         speed_est_st=mosaic::zscore(`speed_est (m/s)`, na.rm=T),
+         mean_treecover=mean_treecover/100)
 
-################# calculate ridges in same extent
 load("movement/data/here")
 
+#For panels A-D
+################## example workflow for ridge density calculations
+#puma concolor F70 from Young study
+
+#set projection because this is what we use when we display all individuals on terrain - this way orientations
+#line up between example and terrain visualizations
+
+proj <- as.telemetry(alldata %>%
+                       unite(individual.local.identifier, individual.taxon.canonical.name,
+                             study.id, col="id", sep="", remove=F) %>%
+                       filter(id==str_replace("C023Canis latransMahoney", ".rda", "")))
+
+tracks <- alldata %>% filter(individual.local.identifier == "F70", study.id=="Mahoney")
+
+dat <- as.telemetry(tracks)
+ctmm:::projection(dat) <- median(proj) #align projections
+
+#workflow to calculate ridges
+SVF <- variogram(dat, CI="Gauss") #gauss CI for more accurate error bars
+GUESS <- ctmm.guess(dat,variogram=SVF,interactive=F)
+BEST_FIT <- ctmm.select(dat, GUESS2, level = 0.95, cores = 2, trace=2)
+UD <- akde(data=dat, CTMM=BEST_FIT, grid=list(extent(proj)), 
+           debias=FALSE, weights=FALSE)
+RIDGE <- ctmm:::ridges.UD(UD2)
+
+SP.UD <- SpatialPolygonsDataFrame.UD(UD2)
+threshold <- 0.5
+
+#get UD at low medium and high 95% core area
+UD_High <- SpatialPolygonsDataFrame.UD(UD)
+UD_High@polygons[[1]] <- NULL
+UD_High@polygons[[1]] <- NULL
+UD_High@plotOrder <- c(1L)
+UD_High <- rgeos::gMakeValid(UD_High)
+
+UD_Mean <- SpatialPolygonsDataFrame.UD(UD)
+UD_Mean@polygons[[3]] <- NULL
+UD_Mean@polygons[[1]] <- NULL
+UD_Mean@plotOrder <- c(1L)
+UD_Mean <- rgeos::gMakeValid(UD_Mean)
+
+UD_Low <- SpatialPolygonsDataFrame.UD(UD)
+UD_Low@polygons[[3]] <- NULL
+UD_Low@polygons[[2]] <- NULL
+UD_Low@plotOrder <- c(1L)
+UD_Low <- rgeos::gMakeValid(UD_Low) 
+
+#get ridges as contourLines
+ridges <- grDevices::contourLines(UD$r$x, UD$r$y, RIDGE, level=threshold)
+
+lines <- list()
+for (i in seq_along(ridges)) {
+  lines[[i]] <- Lines(list(Line(cbind(ridges[[i]]$x, ridges[[i]]$y))), 
+                      ID = as.character(i))
+}
+
+#convert to spatiallines
+all_lines <- SpatialLines(lines, proj = SP.UD@proj4string)
+
+ridges_mean <- tryCatch({ raster::intersect(all_lines, UD_Mean) },
+                         error= function(e) { ridges_mean <- 0 })
+
+#transform axes into km to plot
+ridges_km <- spTransform(ridges_mean,"+proj=aeqd +lat_0=38.6480207305513 +lon_0=-112.074775967984 +x_0=0 +y_0=0 +datum=WGS84 +units=km")
+
+#plots
+plot(dat, col="black", error=F, type="l",cex.axis=1.15, cex.lab=1.15) #A: GPS tracks as line
+
+xlim=c(0, tail(SVF2$lag,1))
+plot(SVF,BEST_FIT, xlim=xlim, cex.axis=1.15, cex.lab=1.15) #B: variogram
+
+plot(dat, col="black", UD=UD2, col.DF="#FF6969", cex.axis=1.15, cex.lab=1.15) #C: UD with GPS tracks as point
+
+plot(dat, col="black", error=F, UD=UD, col.DF="#FF6969", cex.axis=1.15, cex.lab=1.15) #D: ridges w/ UD and GPS tracks as point
+plot(ridges_km, col="#960000",lwd=3,add=T)
+
+
+#For panels E-G
+################# calculate ridges in same extent
+
 inds <- (ridge %>%
-  filter(updatedstudy=="Abrahms") #%>%
-  #filter(sp %in% c("Chrysocyon brachyurus", "Puma concolor")) #oliveira-santos
-  #filter(sp %in% c("Canis latrans", "Lynx rufus")) #for clark
-  #filter(study=="Mahoney") #drops bobcats; for young
-  #filter(grepl("MV", id)) #for prugh MV
-  #filter(grepl("NE", id)) #for prugh NE
-  #unite(id, sp, study, col="id2", sep="") %>% #for ramesh & drouilly
-    #ramesh inds
-  #filter(id2 %in% c("2Canis mesomelasRamesh", "2Caracal caracalRamesh", "4Caracal caracalRamesh",
-    #"6Canis mesomelasRamesh", "ElevenLeptailurus servalRamesh", "FiveFiveLeptailurus servalRamesh",
-    #"FiveLeptailurus servalRamesh", "FourteenLeptailurus servalRamesh", "NineLeptailurus servalRamesh",
-    #"OneLeptailurus servalRamesh", "SevenLeptailurus servalRamesh", "SevensevenLeptailurus servalRamesh",
-    #"SixLeptailurus servalRamesh", "TenLeptailurus servalRamesh", "TentenLeptailurus servalRamesh",
-    #"ThreeLeptailurus servalRamesh", "TwelveLeptailurus servalRamesh", "TwoLeptailurus servalRamesh"))
-    #drouilly inds
-  #filter(id2 %in% c("BBJackal_EskimoCanis mesomelasDrouilly", "BBJackal_ForestCanis mesomelasDrouilly",
-    #"BBJackal_LunaCanis mesomelasDrouilly", "BBJackal_RainCanis mesomelasDrouilly",
-    #"LuckyCaracal caracalDrouilly", "MoonshineCaracal caracalDrouilly"))
-    )$id
+           filter(updatedstudy=="Drouilly") #%>% (studies are Drouilly, Young and Vanak)
+         #unite(id, sp, study, col="id2", sep="") %>% 
+          #drouilly inds
+         #filter(id2 %in% c("BBJackal_Forest", "BBJackal_Rain","Lucky"))
+          #vanak inds
+         #filter(id2 %in% c("Fox 13 (Vasu)", "Fox 22 (Ding Dong)", "Fox 23 (300)", "Jackal 03 (Nanda)",
+         #"Jackal 07 (Marker)", "Jackal 09 (Roma)", "Jungle cat 09 (Dagdu)", "Jungle cat 10 (Bheegi Billi)",
+         #"Jungle cat 12 (Cavity)", "Jungle cat 13 (Kamini)"))
+          #young inds
+         #filter(id2 %in% c("C023", "C026", "C028", "F108", "F157","F159", "F70"))
+)$id
+
 
 #modifications to tracks as necessary
 mod_to_tracks <- function(track) {
@@ -71,24 +141,6 @@ mod_to_tracks <- function(track) {
 
   ############# below are lines to edit problematic individuals as needed
 
-  if (updatedstudy=="Clark") {
-
-    # if (id%in%c("L19","L19_a","L19_b")) {
-    # break
-    #}
-    if (id%in%c("L12","L27","R3","C263")) {
-      track <- crop_range_res(track)
-    }
-    if (id=="C248"){
-      track <- track %>%
-        distinct(timestamp, .keep_all=TRUE)
-    }
-    if (id=="L30"){
-      track <- track %>%
-        filter(timestamp > ymd_hms("2022-01-01 07:00:39"))
-    }
-  }
-
   if (updatedstudy=="Drouilly") {
     if (id%in%c("BBJackal_Rain")) {
       track <- crop_range_res(track)
@@ -96,48 +148,6 @@ mod_to_tracks <- function(track) {
     if (id=="Lucky") {
       track <- crop_range_res(track) %>%
         filter(location.lat > -32.845)
-    }
-  }
-
-  if (updatedstudy=="Oliveira-Santos.Dataset1") {
-    if (id%in%c("150011","150041","150102","150312","150402","150462",
-                "150552","150681","163181","164820","164886","164900",
-                "164957","1649671","165164","165194","1651941","165224","165252","1652521")) {
-      break
-      #skip Cerdocyon thous duplicates in OS dataset1
-    }
-    if (id%in%c("CAN13","CAN49", "Grupo005_Id001","Grupo005_Id032")) {
-      track <- crop_range_res(track)
-    }
-  }
-
-  if (updatedstudy=="Prugh") {
-    if (id%in%c("C_NECOY20F","B_MVBOB54F","B_MVBOB66M","B_NEBOB33M","B_NEBOB35M")) {
-      track <- crop_range_res(track)
-    }
-    if (id=="C_MVCOY98M") {
-      track <- crop_range_res(track) %>%
-        filter(timestamp < ymd_hms("2020-09-01 00:00:00"))
-    }
-    if (id=="B_NEBOB23M") {
-      track <- crop_range_res(track) %>%
-        filter(location.long < -118)
-    }
-  }
-
-  if (updatedstudy=="Sekercioglu") {
-    if (id%in%c("Bilge")) {
-      track <- crop_range_res(track)
-    }
-  }
-
-  if (updatedstudy=="Ramesh") {
-
-    if (id%in%c("4")&species%in%c("Canis mesomelas")) {
-      track <- crop_range_res(track)
-    }
-    if (id=="4" & species=="Caracal caracal") {
-      track <- crop_range_res(track)
     }
   }
 
@@ -307,21 +317,17 @@ UDS <- readRDS("drouilly/uds/here")
 ridges <- readRDS("drouilly/ridges/here")
 
 ext = extent(SpatialPolygons(lapply(UDS, function(x){x@polygons[[3]]})))
-utmcoor<-SpatialPoints(rbind(cbind(ext[1], ext[3]),
-                             cbind(ext[1], ext[4]),
-                             cbind(ext[2], ext[3]),
-                             cbind(ext[2], ext[4])), 
+utmcoor<-SpatialPoints(rbind(cbind(ext[1]-1000, ext[3]-1000),
+                             cbind(ext[1]-1000, ext[4]+1000),
+                             cbind(ext[2]+1000, ext[3]-1000),
+                             cbind(ext[2]+1000, ext[4]+1000)), 
                        proj4string=crs(UDS[[1]]))
 
 longlatcoor<-spTransform(utmcoor,CRS("+proj=longlat"))
 
-background <- get_stamenmap(c(extent(longlatcoor)[1]-0.01, extent(longlatcoor)[3]-0.02,
-                              extent(longlatcoor)[2]+0.01, extent(longlatcoor)[4]+0.01), zoom=12, maptype="terrain")
-
-background <- poisspatial::ps_ggmap_to_raster(background)
-crs(background) <- longlatcoor
-
-drouilly_ras <- terra::project(terra::rast(background), crs(utmcoor, asText=T))
+drouilly_ras <- terra::rast("background/raster/here") #satellite imagery downloaded via google earth engine sentinel-2
+drouilly_ras <- terra::project(drouilly_ras, crs(utmcoor, asText=T))
+drouilly_ras <- terra::crop(drouilly_ras, extent(utmcoor))
 plotRGB(drouilly_ras, axes=T, mar=1.5, buffer=F) #just background
 
 #plot ridges on top of background
@@ -357,14 +363,6 @@ if(is_empty(clade)==FALSE) {
 }
 
 print(paste(AKDES[[1]]@info$identity, clade))
-
-par(xpd=TRUE)
-legend(c(-136093.1, -118000), c(-52679.85, -47479.85), " Western Cape, South Africa\n\n", 
-       box.col = "black", bg = "white", cex=0.85, adj = c(0.12,0.1)) #vanak
-text(-134093.1, -49679.85, substitute(paste(italic("Lupulella mesomelas"))), 
-     col="blue", cex=0.85, adj = c(0.12)) #vanak
-text(-134290.1, -51079.85, substitute(paste(italic("Caracal caracal"))),
-     col="red", cex=0.85, adj = c(0.12)) #vanak
 
 for (i in 2:length(ridges)) {
   
@@ -408,22 +406,17 @@ UDS <- readRDS("vanak/uds/here")
 ridges <- readRDS("vanak/ridges/here")
 
 ext = extent(SpatialPolygons(lapply(UDS, function(x){x@polygons[[3]]})))
-utmcoor<-SpatialPoints(rbind(cbind(ext[1], ext[3]),
-                             cbind(ext[1], ext[4]),
-                             cbind(ext[2], ext[3]),
-                             cbind(ext[2], ext[4])), 
+utmcoor<-SpatialPoints(rbind(cbind(ext[1]-1000, ext[3]-1000),
+                             cbind(ext[1]-1000, ext[4]+1000),
+                             cbind(ext[2]+1000, ext[3]-1000),
+                             cbind(ext[2]+1000, ext[4]+1000)), 
                        proj4string=crs(UDS[[1]]))
 
 longlatcoor<-spTransform(utmcoor,CRS("+proj=longlat"))
 
-background <- get_stamenmap(c(extent(longlatcoor)[1]-0.01, extent(longlatcoor)[3]-0.02,
-                              extent(longlatcoor)[2]+0.01, extent(longlatcoor)[4]+0.01), zoom=12, maptype="terrain")
-
-background <- poisspatial::ps_ggmap_to_raster(background)
-crs(background) <- longlatcoor
-
-vanak_ras <- terra::project(terra::rast(background), crs(utmcoor, asText=T))
-plotRGB(vanak_ras, axes=T, mar=1.5, buffer=F)
+vanak_ras <- terra::rast("background/raster/here") #satellite imagery downloaded via google earth engine sentinel-2
+vanak_ras <- terra::project(drouilly_ras, crs(utmcoor, asText=T))
+vanak_ras <- terra::crop(drouilly_ras, extent(utmcoor))
 
 par(bg=NA) #comment out to get background back
 
@@ -460,15 +453,6 @@ if(is_empty(clade)==FALSE) {
 }
 
 print(paste(AKDES[[1]]@info$identity, clade))
-
-par(xpd=TRUE)
-legend(10000, 300, title ="Clade", c("Canidae", "Felidae"), fill=c("blue","red"), box.col = "black", bg = "white",
-       cex=0.9, text.col="black") #vanak
-legend(-8700, 950, "Maharashtra, India   \n\n\n\n", box.col = "black", bg = "white", cex=0.9, adj = c(0.12,0.1)) #vanak
-text(-8080, -200, substitute(paste(italic("Canis aureus(1)\nVulpes bengalensis(2)"))), 
-     col="blue", cex=0.9, adj = c(0.12)) #vanak
-text(-8180, -700, substitute(paste(italic("Felis chaus"))),
-     col="red", cex=0.9, adj = c(0.12)) #vanak
 
 for (i in 2:length(ridges)) {
   
@@ -513,21 +497,17 @@ UDS <- readRDS("young/uds/here")
 ridges <- readRDS("young/ridges/here")
 
 ext = extent(SpatialPolygons(lapply(UDS, function(x){x@polygons[[3]]})))
-utmcoor<-SpatialPoints(rbind(cbind(ext[1], ext[3]),
-                             cbind(ext[1], ext[4]),
-                             cbind(ext[2], ext[3]),
-                             cbind(ext[2], ext[4])), 
+utmcoor<-SpatialPoints(rbind(cbind(ext[1]-1000, ext[3]-1000),
+                             cbind(ext[1]-1000, ext[4]+1000),
+                             cbind(ext[2]+1000, ext[3]-1000),
+                             cbind(ext[2]+1000, ext[4]+1000)), 
                        proj4string=crs(UDS[[1]]))
 
 longlatcoor<-spTransform(utmcoor,CRS("+proj=longlat"))
 
-background <- get_stamenmap(c(extent(longlatcoor)[1]-0.01, extent(longlatcoor)[3]-0.01,
-                              extent(longlatcoor)[2]+0.01, extent(longlatcoor)[4]+0.05), zoom=12, maptype="terrain")
-
-background <- poisspatial::ps_ggmap_to_raster(background)
-crs(background) <- longlatcoor
-
-young_ras <- terra::project(terra::rast(background), crs(utmcoor, asText=T))
+young_ras <- terra::rast("background/raster/here") #satellite imagery downloaded via google earth engine sentinel-2
+young_ras <- terra::project(young_ras, crs(utmcoor, asText=T))
+young_ras <- terra::crop(young_ras, extent(utmcoor))
 plotRGB(young_ras, axes=T, mar=1.5, buffer=F) #just background
 
 #add ridges
@@ -594,31 +574,5 @@ for (i in 2:length(youngridge)) {
   
 }
 
-#put them together
-library(cowplot)
-
-vanak <- ggdraw() +  draw_image("/vanak/plot/here", clip="on")
-
-young <- ggdraw() + 
-  theme(plot.background = element_rect(fill="transparent", color = NA)) + 
-  draw_image("young/plot/here", clip="on")
-
-drouilly <- ggdraw() + 
-  theme(plot.background = element_rect(fill="transparent", color = NA)) + 
-  draw_image("drouilly/plot/here", clip="on")
-
-#FINAL figure 1!
-plot_grid(vanak, NULL,
-          plot_grid(young, drouilly,
-                    nrow=1, ncol=2, 
-                    rel_widths=c(0.85,1),
-                    labels=c("B)","C)"),
-                    label_size = 30,
-                    label_x = 0.065, label_y = 0.86),
-          nrow=3, ncol=1,
-          rel_heights=c(1, -0.3, 1.3),
-          labels=c("A)","",""),
-          label_size = 30,
-          label_x = 0.05, label_y = 0.92)
-
+#figures 
 
