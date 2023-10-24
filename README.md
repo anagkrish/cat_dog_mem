@@ -2,6 +2,8 @@
 
 <b>Authors:</b> W.F. Fagan and many, many, many others
 
+[![DOI](https://zenodo.org/badge/659077878.svg)](https://zenodo.org/doi/10.5281/zenodo.10038542)
+
 <insert abstract here>
 
 This repo contains the code and additional data required to reproduce the results in this manuscript. More detail on each file is provided below:
