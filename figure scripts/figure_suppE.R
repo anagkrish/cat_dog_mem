@@ -171,12 +171,15 @@ effsizes <- effsizes %>%
                      ifelse(var=="speed_est", "Speed<br>(m/s)\\*", name)))))))))))
 
 
-`SUBSET NAME` <- effsizes %>% #plot object name corresponds to subset: full, dna, speed, clean, year
+`SUBSET NAME` <- effsizes %>% #plot object name corresponds to subset: full, dna, speed, clean, year, 
+                              # canidae, felidae (included in separate supplementary figure)
   filter(subset%in%c("subset name here")) %>%
   mutate(subset = factor(subset, levels = c("full", "dna only", "speed inc", 
-                                            "clean", "duration > 1yr", "same landscape"),
+                                            "clean", "year", "same landscape",
+                                            "canidae", "felidae"), #these two for figure E4
                          labels = c("Full", "DNA Only Tree", "Speed Included", 
-                                    "No Preprocessing", "Year or Longer", "Shared Landscapes"))) %>%
+                                    "No Preprocessing", "Year or Longer", "Shared Landscapes",
+                                    "Canidae Only", "Felidae Only"))) %>% #these two for figure E4
   mutate(textcol = ifelse(var %in% c("Phylogenetic", "Individual", "Phylogenetic<br>(Clade)"), "**", 
                           #phylo/rand effects
                           ifelse(var %in% c("log_mass_st", "log_hr_st", "log_roughness_st"), "***",
@@ -202,20 +205,33 @@ effsizes <- effsizes %>%
   facet_grid(type~., scales="free", space="free") +
   ggforce::facet_col(type~., scales = 'free', space = 'free')
 
-p <- cowplot::plot_grid(dna + labs(subtitle="\nDNA Only Tree (N=1183, C=15, F=17)") + theme(axis.title.x=element_blank()), 
-                        speed + labs(subtitle="\nSpeed Included (N=1011, C=16, F=18)") + theme(axis.title.x=element_blank()), 
-                        clean + labs(subtitle="\nNo Preprocessing (N=1064, C=16, F=18)") + theme(axis.title.x=element_blank()), 
-                        year + labs(subtitle="\nYear or Longer (N=338, C=13, F=16)") + theme(axis.title.x=element_blank()),
-                        shared + labs(subtitle="\nShared Landscapes (N=216, C=7, F=7)") + theme(axis.title.x=element_blank()),
+p <- cowplot::plot_grid(dna + labs(subtitle="\nDNA Only Tree (N=1180, C=15, F=17)") + theme(axis.title.x=element_blank()), 
+                        speed + labs(subtitle="\nSpeed Included (N=1008, C=16, F=18)") + theme(axis.title.x=element_blank()), 
+                        clean + labs(subtitle="\nNo Preprocessing (N=1061, C=16, F=18)") + theme(axis.title.x=element_blank()), 
+                        year + labs(subtitle="\nYear or Longer (N=337, C=13, F=16)") + theme(axis.title.x=element_blank()),
+                        shared + labs(subtitle="\nShared Landscapes (N=216, C=7, F=7)") + theme(axis.title.x=element_text(hjust=-1.3, size=20)),
                         ncol=2,
-                        rel_heights=(c(1,1,0.4)),
+                        #rel_heights=(c(1,1,0.4)),
                         labels=c("A)", "B)", "C)", "D)", "E)"),
                         label_size=20,
                         hjust = -2,
                         vjust = 2)  +
   theme(panel.background = element_rect(fill="white"), text=element_text(size=35))
 
-cowplot::ggdraw(cowplot::add_sub(p, label="Effect Size (Percent Increase in Ridge Density)", hjust = 0.5, color="black"))
+cowplot::ggdraw(p)
+
+###E4. Canidae Only/Felidae Only Effect Sizes (out of order bc it's easier to plot these together)
+
+cowplot::plot_grid(canidae + labs(subtitle="\nCanidae Only (N=609, C=16)") + theme(axis.title.x=element_blank()), 
+                   felidae + labs(subtitle="\nFelidae Only (N=607, F=18)") 
+                   + theme(axis.title.x=element_text(hjust=4, size=15)),
+                   ncol=2,
+                   labels=c("A)", "B)"),
+                   label_size=20,
+                   align = "h",
+                   hjust = -2,
+                   vjust = 2)  +
+  theme(text=element_text(size=25))
 
 ###E2. Same Species Different Landscapes
 speciesdifflandscape <- ridge %>% filter(sp%in%c("Canis latrans", "Canis lupus", "Vulpes vulpes", "Lynx rufus",
@@ -340,9 +356,7 @@ for (i in seq_along(study_ests$sp)) {
 }
 
 
-biomes <- readxl::read_excel("biomes.csv") %>% #biomes extracted from RESOLVE ecoregions map in arcGIS online
-  mutate(identifier = replace_na(as.character(identifier), ""),
-         sp=ifelse(sp=="Canis mesomelas", "Lupulella mesomelas", sp))
+biomes <- readxl::read_excel("biomes.csv") #biomes extracted from RESOLVE ecoregions map in arcGIS online
 
 study_ests_plot <- study_ests %>%
   left_join(biomes, by = c("sp"="sp", "updatedstudy"="updatedstudy")) %>%

@@ -325,9 +325,13 @@ utmcoor<-SpatialPoints(rbind(cbind(ext[1]-1000, ext[3]-1000),
 
 longlatcoor<-spTransform(utmcoor,CRS("+proj=longlat"))
 
-drouilly_ras <- terra::rast("background/raster/here") #satellite imagery downloaded via google earth engine sentinel-2
-drouilly_ras <- terra::project(drouilly_ras, crs(utmcoor, asText=T))
-drouilly_ras <- terra::crop(drouilly_ras, extent(utmcoor))
+##satellite imagery downloaded via google earth engine sentinel-2
+#drouilly_ras <- terra::rast("satellite/raster/here") 
+#drouilly_ras <- terra::project(drouilly_ras, crs(utmcoor, asText=T))
+#drouilly_ras <- terra::crop(drouilly_ras, extent(utmcoor))
+
+##non-satellite imagery downloaded from Stadia/Stamenmaps and saved as raster
+drouilly_ras <- terra::rast("terrain/raster/here") 
 plotRGB(drouilly_ras, axes=T, mar=1.5, buffer=F) #just background
 
 #plot ridges on top of background
@@ -414,9 +418,14 @@ utmcoor<-SpatialPoints(rbind(cbind(ext[1]-1000, ext[3]-1000),
 
 longlatcoor<-spTransform(utmcoor,CRS("+proj=longlat"))
 
-vanak_ras <- terra::rast("background/raster/here") #satellite imagery downloaded via google earth engine sentinel-2
-vanak_ras <- terra::project(drouilly_ras, crs(utmcoor, asText=T))
-vanak_ras <- terra::crop(drouilly_ras, extent(utmcoor))
+##satellite imagery downloaded via google earth engine sentinel-2
+#vanak_ras <- terra::rast("satellite/raster/here") 
+#vanak_ras <- terra::project(vanak_ras, crs(utmcoor, asText=T))
+#vanak_ras <- terra::crop(vanak_ras, extent(utmcoor))
+
+##non-satellite imagery downloaded from Stadia/Stamenmaps and saved as raster
+vanak_ras <- terra::rast("terrain/raster/here") 
+plotRGB(vanak_ras, axes=T, mar=1.5, buffer=F) #just background
 
 par(bg=NA) #comment out to get background back
 
@@ -505,10 +514,15 @@ utmcoor<-SpatialPoints(rbind(cbind(ext[1]-1000, ext[3]-1000),
 
 longlatcoor<-spTransform(utmcoor,CRS("+proj=longlat"))
 
-young_ras <- terra::rast("background/raster/here") #satellite imagery downloaded via google earth engine sentinel-2
-young_ras <- terra::project(young_ras, crs(utmcoor, asText=T))
-young_ras <- terra::crop(young_ras, extent(utmcoor))
+##satellite imagery downloaded via google earth engine sentinel-2
+#young_ras <- terra::rast("satellite/raster/here") 
+#young_ras <- terra::project(young_ras, crs(utmcoor, asText=T))
+#young_ras <- terra::crop(young_ras, extent(utmcoor))
+
+##non-satellite imagery downloaded from Stadia/Stamenmaps and saved as raster
+young_ras <- terra::rast("terrain/raster/here") 
 plotRGB(young_ras, axes=T, mar=1.5, buffer=F) #just background
+
 
 #add ridges
 par(bg=NA)

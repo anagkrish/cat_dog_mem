@@ -263,7 +263,7 @@ library(ggtext)
 panel_a <- effsizes %>%
   filter(subset%in%c("full")) %>%
   mutate(subset = factor(subset, levels = c("full", "dna only", "speed inc", 
-                                            "clean", "duration > 1yr", "same landscape"),
+                                            "clean", "year", "same landscape"),
                          labels = c("Full", "DNA Only Tree", "Speed Included", 
                                     "No Preprocessing", "Year or Longer", "Shared Landscapes"))) %>%
   mutate(textcol = #phylo/rand effects
@@ -316,8 +316,8 @@ panel_b <- ridgedensreldiffs %>%
                    labels = c("Full", "DNA Only\nTree", "Speed\nIncluded", "No\nPreprocessing",
                               "Year or\nLonger", "Shared\nLandscapes"))  +
   geom_hline(mapping=aes(yintercept = 0), linetype="dashed") +
-  geom_text(aes(label = c("N=1219\nC=16\nF=18", "N=1011\nC=16\nF=18", "N=1183\nC=15\nF=17", 
-                          "N=1064\nC=16\nF=18", "N=338\nC=13\nF=16", "N=216\nC=7\nF=7"),
+  geom_text(aes(label = c("N=1216\nC=16\nF=18", "N=1008\nC=16\nF=18", "N=1180\nC=15\nF=17", 
+                          "N=1061\nC=16\nF=18", "N=337\nC=13\nF=16", "N=216\nC=7\nF=7"),
                 y = rep(c(0.045), times = 6)), size=3) +
   scale_y_continuous(limits=c(0, 0.6), breaks = c(0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6), 
                      labels = c("0%","10%","20%","30%", "40%", "50%", "60%")) +
