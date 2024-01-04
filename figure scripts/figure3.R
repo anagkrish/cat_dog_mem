@@ -135,28 +135,30 @@ exp(ctmm:::norm.ci(DIFF, VAR.DIFF))
 
 ###################################################
 #panel a
-subs="FULL" 
+subs="full" #subset
 effsizes <- data.frame(subset=NA, var=NA, low=NA, est=NA, high=NA, type=NA, color=NA) %>%
   drop_na()
-
-effsizes <- effsizes %>%
-  #get intervals for one sd 
-  rbind(c(subs, "Phylogenetic", append((exp(c(-1,1)*sqrt(FIT$sigma2[[1]])))-1, NA, after=1), 
-          "Biological Variance", "Biological Variance")) %>%
-  #get intervals for one sd 
-  rbind(c(subs, "Individual", append((exp(c(-1,1)*sqrt(FIT$sigma2[[2]])))-1, NA, after=1), 
-          "Biological Variance", "Biological Variance")) %>%
-  rbind(c(subs, "Phylogenetic\n(Clade)", exp(ctmm:::norm.ci(DIFF, VAR.DIFF))-1, 
-          "Model Coefficients and Effects", "Biological Variance"))
 
 get_coefs <- function(tidy) {
   
   x <- c(tidy$lb, tidy$estimate, tidy$ub)
+  
   c <- abs(1-exp(x))*sign(x) 
+  print(((abs(1-exp(x)))/exp(1))*sign(x))
+  print(str_detect(tidy$term, "log"))
   
   return(c)
   
 }
+
+
+effsizes <- effsizes %>%
+  rbind(c(subs, "Phylogenetic", append((exp(c(-1,1)*sqrt(FIT$sigma2[[1]])))-1, NA, after=1), 
+          "Biological Variance", "Biological Variance")) %>%
+  rbind(c(subs, "Individual", append((exp(c(-1,1)*sqrt(FIT$sigma2[[2]])))-1, NA, after=1), 
+          "Biological Variance", "Biological Variance")) %>%
+  rbind(c(subs, "Phylogenetic<br>(Clade)", exp(ctmm:::norm.ci(DIFF, VAR.DIFF))-1, 
+          "Model Coefficients and Effects", "Biological Variance"))
 
 tidy <- broom::tidy(FIT) %>%
   mutate(ub = estimate + (std.error*qnorm(0.975)),
@@ -164,8 +166,9 @@ tidy <- broom::tidy(FIT) %>%
 
 for (i in seq_along(tidy$term)) {
   
-  if (tidy$term[[i]] =="speed_est_st") {
+  if (tidy$term[[i]] == "speed_est_st") {
     effsizes <- rbind(effsizes, 
+                      #c(subs, "Speed\n(m/s)", 
                       c(subs, tidy$term[[i]], 
                         get_coefs(filter(tidy, term==tidy$term[[i]])), 
                         "Model Coefficient", "Model Coefficient"))
@@ -180,6 +183,7 @@ for (i in seq_along(tidy$term)) {
   
   if (tidy$term[[i]] == "pursuit1") {
     effsizes <- rbind(effsizes, 
+                      #c(subs, "Hunting Movement \n(Pursuit)", 
                       c(subs, tidy$term[[i]],
                         get_coefs(filter(tidy, term==tidy$term[[i]])), 
                         "Model Coefficient", "Model Coefficient"))
@@ -187,6 +191,7 @@ for (i in seq_along(tidy$term)) {
   
   if (tidy$term[[i]] == "disruptfast1") {
     effsizes <- rbind(effsizes, 
+                      #c(subs, "Hunting Movement \n(Disruptive Fast)", 
                       c(subs, tidy$term[[i]], 
                         get_coefs(filter(tidy, term==tidy$term[[i]])), 
                         "Model Coefficient", "Model Coefficient"))
@@ -194,6 +199,7 @@ for (i in seq_along(tidy$term)) {
   
   if (tidy$term[[i]] == "slowwalking1") {
     effsizes <- rbind(effsizes, 
+                      #c(subs, "Hunting Movement \n(Slow Walking)", 
                       c(subs, tidy$term[[i]],
                         get_coefs(filter(tidy, term==tidy$term[[i]])), 
                         "Model Coefficient", "Model Coefficient"))
@@ -202,6 +208,7 @@ for (i in seq_along(tidy$term)) {
   
   if (tidy$term[[i]] == "log_hr_st") {
     effsizes <- rbind(effsizes, 
+                      #c(subs, "Home Range Area (m²)", 
                       c(subs, tidy$term[[i]], 
                         (get_coefs(filter(tidy, term==tidy$term[[i]]))), 
                         "Model Coefficient", "Model Coefficient"))
@@ -210,11 +217,18 @@ for (i in seq_along(tidy$term)) {
   
   if (tidy$term[[i]] == "log_roughness_st") {
     effsizes <- rbind(effsizes, 
+                      #c(subs, "Terrain \nRoughness (m)", 
                       c(subs, tidy$term[[i]], 
                         (get_coefs(filter(tidy, term==tidy$term[[i]]))), 
                         "Model Coefficient", "Model Coefficient"))
   }
-
+  
+  # if (tidy$term[[i]] == "log_hfi") {
+  #   effsizes <- rbind(effsizes, 
+  #         c(subs, tidy$term[[i]], 
+  #           (get_coefs(filter(tidy, term==tidy$term[[i]]))), 
+  #           "Model Coefficient", "Model Coefficient"))
+  # }
   
   if (tidy$term[[i]] == "mean_hfi") {
     effsizes <- rbind(effsizes, 
@@ -230,14 +244,23 @@ for (i in seq_along(tidy$term)) {
                         "Model Coefficient", "Model Coefficient"))
   }
   
-  if (tidy$term[[i]] == "seasonality_dhi_gpp_st") {
+  if (tidy$term[[i]] == "mean_road_cover") {
     effsizes <- rbind(effsizes, 
                       c(subs, tidy$term[[i]], 
                         get_coefs(filter(tidy, term==tidy$term[[i]])), 
                         "Model Coefficient", "Model Coefficient"))
   }
   
+  if (tidy$term[[i]] == "seasonality_dhi_gpp_st") {
+    effsizes <- rbind(effsizes, 
+                      #c(subs, "Dynamic Habitat Index\n(Gross Primary Productivity)\n(kg C/m²))", 
+                      c(subs, tidy$term[[i]], 
+                        get_coefs(filter(tidy, term==tidy$term[[i]])), 
+                        "Model Coefficient", "Model Coefficient"))
+  }
+  
 }
+
 
 colnames(effsizes) = c("subset", "var", "low", "est", "high", "type", "color")
 
@@ -274,7 +297,7 @@ panel_a <- effsizes %>%
                    ifelse(var %in% c("pursuit1", "disruptfast1", "slowwalking1"), "_", 
                    #untransformed vars
                    ifelse(var %in% c("mean_hfi", "mean_treecover", 
-                                     "seasonality_dhi_gpp_st", "speed_est"), "", NA))))) %>%
+                                     "seasonality_dhi_gpp_st"), "", NA))))) %>%
   mutate(label = paste(textcol, name, textcol, sep = ""),
          label = fct_reorder(label, rev(sort(as.character(label))))) %>%
   #mutate_at(c("low","est","high"), function(x){x*100}) %>%  #parse_number(x)*100}) %>%
@@ -297,10 +320,13 @@ plot(panel_a)
 
 ###################################################
 #clade reldiff across various subsets
-ridgedensreldiffs <- read_csv("mod_comps.csv") #summary statistics for each of the ridge subsets
+ridgedensreldiffs <- read_csv("mod_comps.csv")  %>% #summary statistics for each of the ridge subsets
+  dplyr::select(c("version", "response_var", "terms",
+                  "aic", "bic", "clade_reldiff_low", "clade_reldiff_est", "clade_reldiff_high"))
 
 panel_b <- ridgedensreldiffs %>%
-  filter(version!="same species diff landscape") %>%
+  filter(version %in% c("full", "dna only", "speed inc", "clean",
+                        "duration >1 yr", "shared landscape")) %>%
   mutate_at(c("clade_reldiff_low", "clade_reldiff_est", "clade_reldiff_high"), 
             function (x) {return(x-1)}) %>%
   mutate(version = factor(version, levels = c("full", "dna only", "speed inc", 
@@ -316,9 +342,9 @@ panel_b <- ridgedensreldiffs %>%
                    labels = c("Full", "DNA Only\nTree", "Speed\nIncluded", "No\nPreprocessing",
                               "Year or\nLonger", "Shared\nLandscapes"))  +
   geom_hline(mapping=aes(yintercept = 0), linetype="dashed") +
-  geom_text(aes(label = c("N=1216\nC=16\nF=18", "N=1008\nC=16\nF=18", "N=1180\nC=15\nF=17", 
-                          "N=1061\nC=16\nF=18", "N=337\nC=13\nF=16", "N=216\nC=7\nF=7"),
-                y = rep(c(0.045), times = 6)), size=3) +
+  geom_text(aes(label = c("N=1239\nC=16\nF=18", "N=1032\nC=16\nF=18", "N=1201\nC=15\nF=17", 
+                          "N=1070\nC=16\nF=18", "N=342\nC=13\nF=16", "N=219\nC=7\nF=7"),
+                y = rep(c(0.55), times = 6)), size=3) +
   scale_y_continuous(limits=c(0, 0.6), breaks = c(0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6), 
                      labels = c("0%","10%","20%","30%", "40%", "50%", "60%")) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),

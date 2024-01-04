@@ -64,11 +64,7 @@ study <- ridge %>%
          updatedstudygroups = replace(updatedstudygroups, 
                                       updatedstudygroups=="Clark"&grepl("C2",id), NA),
          updatedstudygroups = replace(updatedstudygroups, 
-                                      updatedstudygroups=="Clark"&grepl("OR",id), NA),
-         updatedstudygroups = replace(updatedstudygroups, 
-                                      updatedstudygroups=="Prugh"&grepl("MV",id), "Prugh MV"),
-         updatedstudygroups = replace(updatedstudygroups, 
-                                      updatedstudygroups=="Prugh"&grepl("NE",id), "Prugh NE")) %>%
+                                      updatedstudygroups=="Clark"&grepl("OR",id), NA)) %>%
   relocate(updatedstudygroups, .after=updatedstudy) %>%
   filter(updatedstudy%in%c("Abrahms", "Clark", "Drouilly", "Mahoney", "Azevedo.Lemos",
                            "Prugh", "Ramesh", "Vanak", "Sekercioglu","Young")) %>%
@@ -213,12 +209,12 @@ study_ests <- study_ests %>%
 study_labs = c(Abrahms = "Tropical Savanna\nBotswana",
                Clark = "Temperate Conifer Forest\nOregon, United States",
                Drouilly = "Desert & Xeric Shrubland\nSouth Africa",
-               `Azevedo.Lemos` = "Tropical Savanna/\nTropical Moist Broadleaf Forest\nBrazil",
-               `Prugh MV` = "Temperate Conifer Forest/\nTemperate Savanna\nWashington, United States",
-               `Prugh NE` = "Temperate Conifer Forest\nWashington, United States",
+               `Azevedo.Lemos` = "Tropical Savanna/\nTropical Moist Broadleaf Forest\nBrasil",
+               `Prugh` = "Temperate Conifer Forest/\nTemperate Savanna\nWashington, United States",
                Ramesh = "Tropical Savanna\nSouth Africa",
-               Vanak = "Desert & Xeric Shrubland\nIndia",
-               Sekercioglu = "Temperate Broadleaf & Mixed Forest\nTürkiye",
+               #vanak biome was corrected by data owner
+               Vanak = "Tropical Savanna\nIndia", #"Desert & Xeric Shrubland\nIndia", 
+               Sekercioglu = "Temperate Broadleaf & Mixed Forest\nTürkïye",
                Young = "Desert & Xeric Shrubland/\nTemperate Conifer Forest\nUtah, United States")
 
 #figure 4 version 1 (with confidence intervals)

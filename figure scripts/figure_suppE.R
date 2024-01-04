@@ -186,7 +186,7 @@ effsizes <- effsizes %>%
                           #log transformed vars
                           ifelse(var %in% c("pursuit1", "disruptfast1", "slowwalking1"), "_", 
                           #indicator vars
-                          ifelse(var %in% c("mean_hfi", "mean_treecover", "seasonality_dhi_gpp_st", "speed_est"), "", NA))))) %>%
+                          ifelse(var %in% c("mean_hfi", "mean_treecover", "seasonality_dhi_gpp_st", "speed_est_st"), "", NA))))) %>%
                           #no transformation (not including standardization)
   mutate(label = paste(textcol, name, textcol, sep = ""),
          label = fct_reorder(label, rev(sort(as.character(label))))) %>%
@@ -205,25 +205,23 @@ effsizes <- effsizes %>%
   facet_grid(type~., scales="free", space="free") +
   ggforce::facet_col(type~., scales = 'free', space = 'free')
 
-p <- cowplot::plot_grid(dna + labs(subtitle="\nDNA Only Tree (N=1180, C=15, F=17)") + theme(axis.title.x=element_blank()), 
-                        speed + labs(subtitle="\nSpeed Included (N=1008, C=16, F=18)") + theme(axis.title.x=element_blank()), 
-                        clean + labs(subtitle="\nNo Preprocessing (N=1061, C=16, F=18)") + theme(axis.title.x=element_blank()), 
-                        year + labs(subtitle="\nYear or Longer (N=337, C=13, F=16)") + theme(axis.title.x=element_blank()),
-                        shared + labs(subtitle="\nShared Landscapes (N=216, C=7, F=7)") + theme(axis.title.x=element_text(hjust=-1.3, size=20)),
-                        ncol=2,
-                        #rel_heights=(c(1,1,0.4)),
-                        labels=c("A)", "B)", "C)", "D)", "E)"),
-                        label_size=20,
-                        hjust = -2,
-                        vjust = 2)  +
+cowplot::plot_grid(dna + labs(subtitle="\nDNA Only Tree (N=1201, C=15, F=17)") + theme(axis.title.x=element_blank()), 
+                   speed + labs(subtitle="\nSpeed Included (N=1032, C=16, F=18)") + theme(axis.title.x=element_blank()), 
+                   clean + labs(subtitle="\nNo Preprocessing (N=1070, C=16, F=18)") + theme(axis.title.x=element_blank()), 
+                   year + labs(subtitle="\nYear or Longer (N=342, C=13, F=16)") + theme(axis.title.x=element_blank()),
+                   shared + labs(subtitle="\nShared Landscapes (N=219, C=7, F=7)") + theme(axis.title.x=element_text(hjust=-1.3, size=20)),
+                   ncol=2,
+                   #rel_heights=(c(1,1,0.4)),
+                   labels=c("A)", "B)", "C)", "D)", "E)"),
+                   label_size=20,
+                   hjust = -2,
+                   vjust = 2)  +
   theme(panel.background = element_rect(fill="white"), text=element_text(size=35))
-
-cowplot::ggdraw(p)
 
 ###E4. Canidae Only/Felidae Only Effect Sizes (out of order bc it's easier to plot these together)
 
-cowplot::plot_grid(canidae + labs(subtitle="\nCanidae Only (N=609, C=16)") + theme(axis.title.x=element_blank()), 
-                   felidae + labs(subtitle="\nFelidae Only (N=607, F=18)") 
+cowplot::plot_grid(canidae + labs(subtitle="\nCanidae Only (N=624, C=16)") + theme(axis.title.x=element_blank()), 
+                   felidae + labs(subtitle="\nFelidae Only (N=615, F=18)") 
                    + theme(axis.title.x=element_text(hjust=4, size=15)),
                    ncol=2,
                    labels=c("A)", "B)"),
@@ -573,9 +571,16 @@ for (i in seq_along(sp_level_ests$sp)) {
   sp_level_ests$pred_ridge[i] <- exp(ctmm:::norm.ci(EST[,1], SE[,1]))[2]
 }
 
-#make violin plot with actual vs predicted values
+#get range of ridge values for each species
+sp_linerange <- aggregate(cbind(ridge_dens_est) ~ sp,
+                          data=ridge,
+                          FUN = function(x) c(min = min(x), max = max(x)))  
+
+#Violin plot with actual vs predicted values
 ggplot() +
-  geom_violin(data = ridge, mapping=aes(x=sp,y=`ridge_dens_est (1/m)`, fill=clade), alpha=0.5, width = 1.5) +
+  geom_errorbar(data = sp_linerange, 
+                mapping=aes(x=sp, ymin=ridge_dens_est[,"min"],ymax=ridge_dens_est[,"max"]), 
+                alpha=0.5, width = 0.8) +
   geom_point(data = sp_level_ests, mapping=aes(x=sp, y=pred_ridge, color=clade, shape=hunting_movement), size=5) +
   scale_fill_manual(name="Clade", values=c("canidae"="blue","felidae"="red"), labels=c("Canidae", "Felidae")) +
   scale_color_manual(name="Clade", values=c("canidae"="blue","felidae"="red"), labels=c("Canidae", "Felidae")) +

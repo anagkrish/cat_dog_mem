@@ -93,7 +93,6 @@ R <- list(phylo=ph_corr)
 #### single mod fit
 #best fit all
 mods <- mods <- ~ log_mass_st + pursuit + disruptfast + slowwalking + log_hr_st + inv_ess + log_roughness_st + mean_treecover + mean_hfi + seasonality_dhi_gpp_st
-
 FIT <- metafor::rma.mv(log_ridge,V=0,mods=mods,random=random,R=R,data=ridge)
 summary(FIT)
 
@@ -167,8 +166,8 @@ for (i in seq_along(sp_level_ests$sp)) {
   disruptfast <- ifelse((sp_level_ests %>% filter(sp==species))$disruptfast==1, 1, 0)
   slowwalking <- ifelse((sp_level_ests %>% filter(sp==species))$slowwalking==1, 1, 0)
   
-  Gc(1, log_mass_st, pursuit, disruptfast, slowwalking, log_hr_st, inv_ess, 
-     log_roughness_st, mean_treecover, mean_hfi, seasonality_dhi_gpp_st)
+  GRAD <- c(1, log_mass, pursuit, disruptfast, slowwalking,
+            log_hr, inv_ess, log_roughness, mean_treecover, mean_hfi, seasonality_dhi_gpp)
   
   EST <- GRAD %*% FIT$beta + SLOPE.EST
   
@@ -227,17 +226,39 @@ phylo_dat <- as.matrix(cbind("Average"=svl_avg, "Predicted"=svl_pred), row.names
 names <- data.frame(label = phylo$tip.label, label2 = str_replace(phylo$tip.label, "_", " "))
 phylo_plot <- full_join(phylo, names, by = "label")
 
-#load akdes/allridge from pre-calculated files (will add og code soon)
+#get individual plots of dog/cat ridges for fig. 2
+load("vanak/jackal08 (don) data")
 
-png("dog.png")
-plot(dogAKDE, units=F, col.DF="grey50")
-plot(dogridge, add=T)
-dev.off()
+#calculate akde and ridges with workflow from figure 1 or calculatefits/getridgefromfits
+AKDES <- load("precalc/akde")
+allridge <- load("precalc/ridges")
 
-png("cat.png")
-plot(catAKDE, units=F, col.DF="grey50")
-plot(catridge, add=T)
-dev.off()
+projection(allridge@proj4string)
+
+ridges_km <- spTransform(allridge,"+proj=aeqd +lat_0=18.2950005802249 +lon_0=74.5378448310939 +x_0=0 +y_0=0 +datum=WGS84 +units=km +no_defs")
+AKDES@info$identity
+
+par(mar = c(5, 6, 1, 1))
+plot(AKDES, col.UD="grey50", col.grid=NA, cex.lab=2, cex.axis=2)
+title(sub="Canis aureus", cex.sub=2, adj = 0.1)
+plot(ridges_km, col="blue", lwd=2, add=T)
+
+#felid ridge 
+load("sekercioglu/ani/lynx/data")
+
+#calculate akde and ridges with workflow from figure 1 or calculatefits/getridgefromfits
+AKDES <- load("precalc/akde")
+allridge <- load("precalc/ridges")
+
+projection(allridge@proj4string)
+
+ridges_km <- spTransform(allridge,"+proj=aeqd +lat_0=40.2058246972533 +lon_0=42.6315888788603 +x_0=0 +y_0=0 +datum=WGS84 +units=km +no_defs")
+AKDES@info$identity
+
+par(mar = c(6, 6, 1, 1))
+plot(AKDES, col.UD="grey50", col.grid=NA, cex.lab=2, cex.axis=2)
+title(sub="Lynx lynx", cex.sub=2, adj = 0.1)
+plot(ridges_km, col="red", lwd=2, add=T)
 
 #put it all together
 p <- ggtree(phylo_plot) +
@@ -258,9 +279,7 @@ gheatmap(p, phylo_dat,
          offset = 20,
          width=0.3,
          legend_title="Ridge Density") +
-  #scale_fill_brewer(type="qual", palette=1, na.value="white") +
-  scale_fill_gradientn(colors=viridis::plasma(n=1000), 
-                       na.value = "white") +
+  colorspace::scale_fill_continuous_sequential(palette="Greens3", na.value="white") +
   theme(plot.margin = unit(c(0.1, 8, 0, 0.5), "cm"),
         legend.position = c(1.03,0.45), legend.direction="vertical",
         legend.key = element_rect(color="black", fill = NA),
@@ -270,7 +289,7 @@ gheatmap(p, phylo_dat,
   coord_cartesian(clip="off") +
   guides(fill = guide_colorbar(override.aes=list(fill=NA),
                                title.position = "right", title.theme = element_text(angle=270),
-                               title.hjust = 0.5, title.vjust = -7.3)) +
+                               title.hjust = 0.5, title.vjust = -2.5)) +
   ggimage::geom_image(x=65, y=-6.5, 
              image="dog.png", 
              size=0.4) +

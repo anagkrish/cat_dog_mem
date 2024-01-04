@@ -13,11 +13,8 @@ library(geosphere)
 
 "%ni%" <- Negate("%in%")
 
+#load object alldata (all movement data for 1528 individuals)
 load("movement/data/here")
-
-alldata <- rbind(movement_allothers, movement_mike, movement_oregon, dingo_ctmm_all,abrahms,newprugh,newyoung,fishingcats) %>%
-	filter(individual.taxon.canonical.name %ni% c("Canis familiaris", "Felis catus","Vulpes bengalensis")) %>% #remove domestics and old vanak inds
-	rbind(newvanak) #add new vanak data (including updated dat for old inds, not much of an update but might as well use new dat)
 
 #list of individuals/species/study names -- used to filter individuals
 updatedstudy <- read_csv("updated/study/here")
@@ -97,17 +94,29 @@ get_stats <- function(track) {
   }
 
   #resample inds with minsampling <60s
-  #NOTE this function was written before the most recent update which changed the way the function "cut" works
-  #will post edited version of this function soon
   resample <- function(track) {
-    track_rs <- track %>%
-            mutate(timestamp_rs = sapply(ymd_hms(timestamp), cut,
-                                         breaks = "1 min")) %>% #special feature in lubrdiate pkg!
-     distinct(timestamp_rs, .keep_all = "TRUE") %>% #collapse to individual resampled time points
-      dplyr::select(-c("timestamp")) %>%
-      rename("timestamp" = timestamp_rs) #added to resample sketchy individuals
+   
+    if (get_minsampling(as.telemetry(track)) < 60) {
+      track_rs <- track %>%
+        mutate(timestamp_rs = sapply(timestamp, cut,
+                                     breaks = "1 min")) %>% #special feature in lubrdiate pkg!
+        #manually search for any cases in which the 00:00:00 has been dropped
+        mutate(timestamp_rs = ifelse(grepl("[0-9]{4}-[0-9]{2}-[0-9]{2}$",timestamp_rs),
+                                     paste(as.character(timestamp_rs), "00:00:00"),
+                                     as.character(timestamp_rs)),
+               timestamp_rs = ymd_hms(timestamp_rs)) %>%
+        #collapse to individual by resampled time points but save og time points
+        distinct(timestamp_rs, .keep_all = "TRUE") %>%
+        dplyr::select(-c("timestamp")) %>%
+        rename("timestamp" = timestamp_rs) #added to resample sketchy individuals
+      
+      return(track_rs)
+    }
     
-    return(track_rs)
+    else {
+      return(track)
+    }
+    
   }
 
   #split track into two "ranges" for individuals w seasonal/spatiotemporal shifts that are basically two home ranges
@@ -151,7 +160,7 @@ get_stats <- function(track) {
   #function to get all mod fits so that you can rerun as many times as need be
   mod_stats <- function(tel,id,species,study) { #input telemetry object
 
-    min_sampling <- get_minsampling(dat)/60 #divide by 60 to get minutes
+    min_sampling <- get_minsampling(dat)/60 #outputs in seconds, divide by 60 to get minutes
   
     #save image of raw tracks
     png(file=paste("rawtracks/", str_replace(id, "/", ""),
@@ -183,16 +192,19 @@ get_stats <- function(track) {
   SVF <- variogram(dat)
   GUESS <- ctmm.guess(dat,variogram=SVF,interactive=F)
   
+  ## to fit error model for resampled individuals and IID fits, uncomment below
+  #uere(dat) <- 10
+  #GUESS <- ctmm.guess(dat,CTMM=ctmm(error=TRUE),interactive=F)
+  
   #fit model with default CTMM parameters (phREML)
   ALL_FITS <-
     ctmm.select(
       dat,
       GUESS,
       verbose = TRUE,
-      level = 0.95,
+      level = 0.95, #non-default argument used to speed up model fitting for 1500+ individuals (made some fits unstable, see methods for more info)
       cores = 2
     )
-  #print(ALL_FITS)
 
   DATA <- dat
   # Finds best model and gets its name
@@ -203,7 +215,6 @@ get_stats <- function(track) {
                             species,study,".rda",sep=""))
 
   print(paste(id,species,"got fits"))
-  #print(summary(BEST_FIT))
 
   best_model_name <- summary(BEST_FIT)$name[[1]]
 
@@ -296,13 +307,13 @@ get_stats <- function(track) {
 #THESE LINES EDIT INDIVIDUALS THAT WERE FLAGGED AS PROBLEMATIC BUT FIXEABLE
 ############# below are lines to edit problematic individuals as needed
 if (updatedstudy=="Belant-Beyer") {
-if (id%in%c("W07","C16")) {
+if (id%in%c("W07")) {
     track <- crop_range_res(track)
 }
 }
 
-if (updatedstudy=="Bertreaux") {
-if (id%in%c("BORR","BVOB","JVOJ","OBBB","ORRR","JVMJ")) {
+if (updatedstudy=="Berteaux") {
+if (id%in%c("BORR","BVOB","JVOJ","OBBB","JVMJ")) {
     track <- crop_range_res(track)
 }
 
@@ -313,38 +324,23 @@ if (id=="ORRR") {
 }
 
 if(updatedstudy=="Clark") {
-if (id%in%c("L12","L15","L27","L28","L7","R3","C247","C248","C263")) {
+if (id%in%c("L12","L27","R3","C263")) {
     track <- crop_range_res(track)
 }
 
-if (id=="L36") {
+if (id=="L19") { 
   track <- track %>%
-	  filter(timestamp < ymd_hms("2022-06-01 01:00:00"))
+    split_for_mean(dt="2018-07-10 22:00:53")
 }
-if (id=="L6"){
- track <- track %>%
-	 filter(timestamp < ymd_hms("2017-11-27 21:01:00"))
+if (id=="C248"){
+    track <- track %>%
+      distinct(timestamp, .keep_all=TRUE)
 }
 if (id=="L30"){
   track <- track %>%
 	  filter(timestamp > ymd_hms("2022-01-01 07:00:39"))
 }
-if (id=="C248"){
-  track <- track %>%
-	  distinct(timestamp, .keep_all=TRUE)
-}
-if (id=="C257"){
-  track <- track %>%
-	  filter(location.long < -118.0944)
-}
-if (id=="C250") {
-  track <- track %>%
-	  filter(location.lat < 45.67430)
-}
-if (id=="L19") { 
-   track <- track %>%
-	   split_for_mean(dt="2018-07-10 22:00:53")
-}
+
 }
 
 if (updatedstudy=="Conner") {
@@ -356,26 +352,20 @@ if (id=="M7") {
 }
 }
 
-if (updatedstudy=="Cozzi") {
-if (id%in%c("Fatalii")) {
-    track <- crop_range_res(track)
-}
-}
-
-if (updatedstudy=="Critescu") {
-if (id%in%c("NCM1","NCM12","NCM13","NCM8","NCM9")) {
+if (updatedstudy=="Cristescu") {
+if (id%in%c("NCM1","NCM13","NCM8","NCM9")) {
     track <- crop_range_res(track)
 }
 }
 
 if (updatedstudy=="Darlington") {
-if (id%in%c("C12","C17","C19","C30","C8")) {
+if (id%in%c("C30","C8")) {
     track <- crop_range_res(track)
 }
 }
 
 if (updatedstudy=="Drouilly") {
-if (id%in%c("BBJackal_Pluto","BBJackal_Rain")) {
+if (id%in%c("BBJackal_Rain")) {
     track <- crop_range_res(track)
 }
 
@@ -391,43 +381,56 @@ if (id=="BBJackal_Rooky") {
 
 if (updatedstudy=="Frair") {
 if (id=="M5") {
-track <- track %>%
-          filter(timestamp > ymd_hms("2006-01-01 18:28:59")) %>%
-	  crop_range_res()
-}
-}
-
-if (updatedstudy=="Farhadinia") {
-if (id%in%c("F5_Iran","M1_Borzou")) {
-    track <- crop_range_res(track)
+  track <- track %>%
+    filter(timestamp > ymd_hms("2006-01-01 18:28:59")) %>%
+    crop_range_res()
 }
 }
 
 if (updatedstudy=="Ferrell") {
-if (id%in%c("B21","B4")) {
-    track <- crop_range_res(track)
-}
+  if (id%in%c("B21")) {
+      track <- crop_range_res(track)
+  }
+  if (id=="B42") {
+    track <- track %>%
+      slice(-c(53, 179)) #edits for speed calc
+  }
 }
 
 if (updatedstudy=="Fryxell") {
-if (id%in%c("148.66","148.81")) {
+  if (id=="148.71") {
+    track <- track %>%
+      split_for_mean(dt="2010-07-22 22:00:34")
+  }
+  
+  #iid inds added nov 27 23
+  if (id=="148.66") {
     track <- crop_range_res(track)
-}
+  }
+  
+  if (id=="148.81") {
+    track <- track %>%
+      mutate(timestamp=ymd_hms(timestamp)) %>%
+      filter(location.long > 34.2, location.long < 34.849) %>%
+      split_for_mean(dt="2010-10-15 18:00:00")
+  }
 }
 
 if (updatedstudy=="Garthe") {
-if (id%in%c("REDFOX-2015-01-BHKoog","REDFOX-2016-03-BHKoog","REDFOX-2018-03-Sylt")) {
-    track <- crop_range_res(track)
-}
+  if (id%in%c("REDFOX-2015-01-BHKoog",
+              "REDFOX-2016-03-BHKoog",
+              "REDFOX-2018-03-Sylt")) {
+      track <- crop_range_res(track)
+  }
+  if(id=="RACDOG-2019-01-Sylt") {
+    track <- track %>%
+      split_for_mean(dt="2019-12-16 02:00:00")
+  }
 }
 
 if (updatedstudy=="Getz-Bellan") {
-if (id%in%c("CM42","CM05","CM09","CM18","CM20","CM26","CM36","CM95")) {
+if (id%in%c("CM18","CM26","CM36","CM95")) {
     track <- crop_range_res(track)
-}
-if (id=="CM70") { 
-    track <- track %>%
-  filter(location.lat < -19)
 }
 if(id=="CM83") {
    track <- crop_range_res(track) %>%
@@ -446,7 +449,7 @@ if(id=="JW01"){
 }
 
 if (updatedstudy=="Hernandez-Blanco") {
-if (id%in%c("Usta","Victoria","Boxer","Princessa","Tsetseg")) {
+if (id%in%c("Tsetseg")) {
     track <- crop_range_res(track)
 }
 if(id=="Killi") {
@@ -466,28 +469,26 @@ if (id%in%c("F33","F39")) {
 }
 
 if (updatedstudy=="Jackson") {
-if (id%in%c("NAN00176","NAN00177")) {
+if (id%in%c("NAN00177")) {
     track <- crop_range_res(track)
 }
-if (id=="NAN00119") { 
-    track <- crop_range_res(track) %>%
-	    filter(location.long > 34.81)
-}
 
-if (id=="NAN00178"){
-  track <- track %>%
-	  filter(timestamp >= ymd_hms("2016-06-14 20:45:32"))
-}
+  if (id=="NAN00178"){
+    track <- track %>%
+      mutate(timestamp = ymd_hms(timestamp)) %>%
+      filter(timestamp >= ymd_hms("2016-06-14 20:45:32"))
+  }
 
 }
 
 if (updatedstudy=="Kays") {
-if (id%in%c("30850","30822")) {
+if (id%in%c("30822")) {
     track <- crop_range_res(track)
 }
 if (id=="30839") {
   track <- track %>%
-  filter(timestamp > ymd_hms("2011-08-01 00:03:07"))
+    mutate(timestamp = ymd_hms(timestamp)) %>%
+    filter(timestamp > ymd_hms("2011-08-01 00:03:07"))
 }
 if (id=="31754") {
   track <- track %>%
@@ -495,7 +496,7 @@ if (id=="31754") {
 }
 }
 
-if (updatedstudy=="Kral") {
+if (updatedstudy=="VanDerWeyde-Kral") {
 if (id%in%c("Kealiboka","Matsoshetsi")) {
     track <- crop_range_res(track)
 }
@@ -515,33 +516,35 @@ if (id=="Felis_200") {
 }
 }
 
-if (updatedstudy=="Songsasen") {
-if (id%in%c("Dhole 1")) {
+if (updatedstudy=="Young") {
+if (id%in%c("C037","B004","B009")) {
     track <- crop_range_res(track)
-}
 }
 
-if (updatedstudy=="Young") {
-if (id%in%c("C022","C037","B004","B009")) {
-    track <- crop_range_res(track)
-}
-if(id=="F133") {
-   track <- track %>%
-	   split_for_mean(dt="2012-12-01 01:15:00")
-}
 if(id=="B007") {
    track <- track %>%
            split_for_mean(dt="2014-09-20 02:01:20")
 }
 }
+  
+if (updatedstudy=="Mannil-Kont") {
+  if (id=="450") {
+    track <- track %>%
+      split_for_mean(dt="2017-09-01 09:01:11")
+  }
+}
 
 if (updatedstudy=="Morato") {
-if (id%in%c("Panthera_114","Panthera_11","Panthera_13","Panthera_27","Panthera_34","Panthera_43",
-	    "Panthera_44","Panthera_5","Panthera_53","Panthera_74","Panthera_81","Panthera_82",
-	    "Panthera_85","Panthera_94")) {
+if (id%in%c("Panthera_114","Panthera_11","Panthera_13","Panthera_27","Panthera_34",
+	    "Panthera_44")) {
     track <- crop_range_res(track)
 }
 
+  if (id=="Panthera_43"){
+    track <- track %>%
+      split_for_mean(dt="2013-02-28 11:00:00")
+  }
+  
 if (id=="Panthera_5") {
    track <- track %>%
 	   split_for_mean(dt="2009-08-29 02:09:00")
@@ -574,18 +577,13 @@ if (id=="Panthera_111"){
 
 if (id=="Panthera_36"){
   track <- track %>%
-          filter(timestamp<=ymd_hms("2000-10-18 15:50:00"))
+    filter(timestamp<=ymd_hms("2000-10-18 15:50:00")) %>%
+    crop_range_res()
 }
 
 }
 
-if (updatedstudy=="Odden") {
-if (id%in%c("412")) {
-    track <- crop_range_res(track)
-}
-}
-
-if (updatedstudy=="Oliveira-Santos.Dataset1") {
+if (updatedstudy=="Azevedo.Lemos") { #originally Oliveira-Santos.Dataset1
 if (id%in%c("150011","150041","150102","150312","150402","150462",
 	    "150552","150681","163181","164820","164886","164900",
 	    "164957","1649671","165164","165194","1651941","165224","165252","1652521")) {
@@ -595,12 +593,12 @@ if (id%in%c("150011","150041","150102","150312","150402","150462",
 #skip Cerdocyon thous duplicates in OS dataset1
 }
 
-if (id%in%c("id15","CAN13","Grupo005_Id017_2","CAN49","Grupo005_Id001","Grupo005_Id032","shack","150041_GustavoCT")) {
+if (id%in%c("CAN13","CAN49","Grupo005_Id001","Grupo005_Id032", "shack")) {
     track <- crop_range_res(track)
-}
+  }
 }
 
-if (updatedstudy=="Oliveira-Santos.Dataset2") {
+if (updatedstudy=="Oliveira-Santos") { #originally Oliveira-Santos.Dataset1
 if (id%in%c("150041_GustavoCT")) {
     track <- crop_range_res(track)
 }
@@ -610,15 +608,29 @@ if (id=="kayapo") {
 }
 }
 
-if (updatedstudy=="Palomares") {
-if (id%in%c("Garfio","Patsuezo","Lynx_Llerena","Lynx_Luna","Lynx_Miera","Lynx_Milano","Lynx_Nitrógeno")) {
-    track <- crop_range_res(track)
-}
-if (id=="Lynx_Neruda") {
-    track <- crop_range_res(track) %>%
-	    split_for_mean("2017-08-31 23:25:00")
-}
-}
+  if (updatedstudy=="Palomares") { #originally grouped with palacios gonzales no idea why
+    if (id%in%c("Garfio", "Patsuezo")) {
+      track <- crop_range_res(track) 
+    }
+  }
+  
+  if (updatedstudy=="Palacios Gonzalez") { #originally grouped w palomares, no idea why
+    if (id%in%c("Lynx_Ketamina", "Lynx_Llerena", 
+                "Lynx_Miera", "Lynx_Negral", "Lynx_Nitrógeno")) {
+      track <- crop_range_res(track)
+    }
+    
+    if (id=="Lynx_Mayo") {
+      track <- track %>%
+        split_for_mean("2016-06-01 05:00:00 ")
+    }
+    
+    if (id=="Lynx_Neruda") {
+      track <- crop_range_res(track) %>%
+        split_for_mean("2017-08-31 23:25:00")
+    }
+    
+  }
 
 if (updatedstudy=="Prugh") {
 if (id%in%c("C_MVBOB91M", "C_NEBOB13F", "C_MVBOB80M", "C_MVBOB66M", "C_NEBOB35M", "C_NEBOB5M",
@@ -632,7 +644,7 @@ if (id%in%c("C_MVBOB91M", "C_NEBOB13F", "C_MVBOB80M", "C_MVBOB66M", "C_NEBOB35M"
   break #skip duplicated coyotes
 }
 
-if (id%in%c("C_NECOY4M","B_MVBOB66M","B_NEBOB33M","B_NEBOB35M","B_NEBOB5M","C_NECOY20F")) {
+if (id%in%c("B_MVBOB66M","B_MVBOB54F","B_NEBOB33M","B_NEBOB35M","C_NECOY20F")) {
     track <- crop_range_res(track)
 }
 
@@ -646,22 +658,35 @@ if (id=="B_NEBOB23M") {
   filter(location.long < -118)
 }
 
-if (id=="B_MVBOB55M") {
+if (id=="C_NECOYaF") {
     track <- track %>%
-	    split_for_mean(dt="2020-06-01 20:00:00")
-}
+      split_for_mean(dt="2019-01-31 20:00:00")
 }
 
+}
+
+if (updatedstudy=="Patterson.BD") {
+  if (id=="Diana") {
+    track <- track %>%
+      slice(-c(66,69,70,72))
+  }
+}
+  
 if (updatedstudy=="Patterson.B") {
 
-if (id%in%c("W97155","W97143","W97132","W97177", "W97188","W97189","W97311","W97359",
-	    "H01","T04","T40","T59","W1605","W97153","W97185","T50","W215")) {
+if (id%in%c("W97155","W97143","W97177", "W97189","W97311","W97359",
+	    "H01","T21","W1605","W215")) {
     track <- crop_range_res(track)
 }
-if(id=="T21") {
-   track <- track %>%
-	   filter(location.lat > 48.3)
+  
+if(id=="W97188") {
+  track <- track %>% crop_range_res() %>% slice(-c(103)) #edits to speed
 }
+  
+  if(id=="W97363") {
+    track <- track %>% slice(-c(70, 2421, 3211)) #edits to speed
+  }
+  
 if(id=="W97303") {
    track <- track %>%
 	   split_for_mean(dt="2012-04-07 04:59:00")
@@ -674,6 +699,7 @@ if(id=="T02") {
    track <- track %>%
 	   split_for_mean(dt="2005-12-01 23:33:00")
 }
+  
 if (species=="Canis lupus x lycaon") {
   if (id %in% c("W97104","W97107","W97110","W97141","W97142","W97147",
 		"W97162","W97303","W97305","W97306","W97356","W97362")) {
@@ -714,7 +740,7 @@ if (id%in%c("Bilge")) {
 
 
 if (updatedstudy=="Serieys") {
-if (id%in%c("Disa","Spitfire","Strandloper","Titan")) {
+if (id%in%c("Titan")) {
     track <- crop_range_res(track)
 }
 if (id=="Azure") {
@@ -736,7 +762,7 @@ if (id%in%c("Bobcat_B31M","Bobcat_B38M","Bobcat_B35F")) {
 
 
 if (updatedstudy=="Serieys.CoyoteValley") {
-if (id%in%c("B18F_5614","B23M_5624")) {
+if (id%in%c("B23M_5624")) {
     track <- crop_range_res(track)
 }
 }
@@ -752,20 +778,8 @@ if (id=="106") {
 }
 }
 
-
-if (updatedstudy=="Tatler Kalamurina") {
-if (id%in%c("JT35")) {
-    track <- crop_range_res(track)
-}
-if(id=="JT38") { 
-    track <- crop_range_res(track) %>%
-  filter(location.long < 137.9828, location.lat < -27.85)
-}
-}
-
 if (updatedstudy=="Vanak") {
-if (id%in%c("Fox 16 (Stepney)", "Fox 13 (Vasu)", "Jackal 02 (Zoom)",
-	    "Jungle cat 06 (Bubbly)")) {
+if (id%in%c("Jackal 02 (Zoom)")) {
     track <- crop_range_res(track)
 }
 if(id%in%c("Fox 25 (Chandra)","Jungle cat 08 (Sultan)", "Jungle Cat 17 (Momo)")) {
@@ -773,10 +787,24 @@ if(id%in%c("Fox 25 (Chandra)","Jungle cat 08 (Sultan)", "Jungle Cat 17 (Momo)"))
 	   drop_na(location.lat) %>%
 	   crop_range_res()
 }
+if (id=="Jungle cat 06 (Bubbly)") {
+  track <- track %>%
+    filter(location.long > 74.6)
+}
+  
+if (id=="Fox 09 (Broken Tail)") {
+  track <- crop_range_res(track)
+}
+  
+if (id=="Fox 20 (Bijli)") {
+  track <- track %>%
+    filter(location.lat > 18.34)
+}
+  
 }
 
 if (updatedstudy=="Walton") {
-if (id%in%c("Janne","Mattias","Putin","Viktor","Oskar_1")) {
+if (id%in%c("Mattias","Viktor","Oskar_1")) {
     track <- crop_range_res(track)
 }
 
@@ -784,20 +812,15 @@ if (id=="Bengt") {
     track <- track %>%
 	    filter(timestamp<ymd_hms("2015-02-02 07:39:00"))
 }
-if (id=="Hen") {
-    track <- track %>%
-	    split_for_mean(dt="2016-12-20 12:41:00")
+if (id=="Spank") {
+    track <- crop_range_res(track)
 }
-if (id=="Putin") {
-   track <- track %>%
-	   crop_range_res() %>%
-	   split_for_mean(dt="2015-05-30 12:41:00")
 }
 }
 
 if (updatedstudy=="Wheeldon") {
-if (id%in%c("PEC059","PEC137","PEC053","PEC070","PEC082","PEC105",
-	    "PEC042","PEC047","PEC086","PEC104","PEC112","PEC114","PEC122")) {
+if (id%in%c("PEC059","PEC053","PEC070","PEC082","PEC105",
+	    "PEC112","PEC114")) {
     track <- crop_range_res(track)
 }
 if(id=="PEC141") {
@@ -837,20 +860,6 @@ if (id=="42M") {
 if (id=="16M") {
     track <- track %>%
 	    split_for_mean(dt="2011-05-30 22:00:53")
-}
-}
-
-if (updatedstudy=="Wysong") {
-if (id%in%c("Yoshi","Zelda")) {
-    track <- crop_range_res(track)
-}
-if (id=="Ugo") {
-    track <- track %>%
-	    split_for_mean(dt="2014-9-29 00:00:00")
-}
-if (id=="Penelope") {
-    track <- track %>%
-	    split_for_mean(dt="2015-01-01 01:00:00")
 }
 }
 
@@ -1010,8 +1019,9 @@ for(i in 1:length(final_list)) {
   df <- structure(rbind(df, final_list[[i]]), .Names = names(df))
 }
 
-print("DONE YAY")
-
 write.csv(df, "model_fit_output.csv")
+
+print("done!")
+
 Rmpi::mpi.close.Rslaves()
 

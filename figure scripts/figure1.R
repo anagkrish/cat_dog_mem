@@ -179,22 +179,22 @@ get_minsampling <- function(individual) {
 
 #resample inds with minsampling <60s
 resample <- function(track) {
-
-  if (get_minsampling(as.telemetry(track)) < 60) {
+  
+  if (get_minsampling(as.telemetry(track)) < 60) { 
     track_rs <- track %>%
       mutate(timestamp_rs = sapply(ymd_hms(timestamp), cut,
                                    breaks = "1 min")) %>% #special feature in lubrdiate pkg!
       distinct(timestamp_rs, .keep_all = "TRUE") %>% #collapse to individual resampled time points
       dplyr::select(-c("timestamp")) %>%
       rename("timestamp" = timestamp_rs) #added to resample sketchy individuals
-
+    
     return(track_rs)
   }
-
-  else {
-    return(track)
+  
+  else { 
+    return(track) 
   }
-
+  
 }
 
 #crop non-range resident inds
@@ -272,18 +272,21 @@ for (i in inds) {
   UD_High@polygons[[1]] <- NULL
   UD_High@plotOrder <- c(1L)
   UD_High <- rgeos::gMakeValid(UD_High)
-
+  #UD_High <- sf::st_make_valid(UD_High)
+  
   UD_Mean <- SpatialPolygonsDataFrame.UD(UD)
   UD_Mean@polygons[[3]] <- NULL
   UD_Mean@polygons[[1]] <- NULL
   UD_Mean@plotOrder <- c(1L)
   UD_Mean <- rgeos::gMakeValid(UD_Mean)
-
+  #UD_Mean <- sf::st_make_valid(UD_Mean)
+  
   UD_Low <- SpatialPolygonsDataFrame.UD(UD)
   UD_Low@polygons[[3]] <- NULL
   UD_Low@polygons[[2]] <- NULL
   UD_Low@plotOrder <- c(1L)
   UD_Low <- rgeos::gMakeValid(UD_Low)
+  #UD_Low <- sf::st_make_valid(UD_Low)
 
   #get ridges as contourLines
   ridges <- grDevices::contourLines(UD$r$x, UD$r$y, RIDGE, level=threshold)
@@ -297,7 +300,10 @@ for (i in inds) {
   #convert to spatiallines
   all_lines <- SpatialLines(lines, proj = SP.UD@proj4string)
 
-  ridges_mean <- tryCatch({ raster::intersect(all_lines, UD_Mean) },
+  ridges_mean <- tryCatch({raster::intersect(all_lines, UD_Mean) },
+                          error= function(e) { ridges_mean <- 0 })
+  #convert to sf bc rgeos is being retired
+  ridges_mean <- tryCatch({ sf::st_as_sf(ridges_mean) },
                           error= function(e) { ridges_mean <- 0 })
 
   #add to list

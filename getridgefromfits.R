@@ -8,6 +8,7 @@ library(stringr)
 library(geosphere)
 library(raster)
 library(sp)
+library(sf)
 library(grDevices)
 library(snow)
 library(doSNOW)
@@ -15,11 +16,8 @@ library(doSNOW)
 
 "%ni%" <- Negate("%in%")
 
+#load movement object alldata for all 1528 individuals
 load("movement/data/here")
-
-alldata <- rbind(movement_allothers, movement_mike, movement_oregon, dingo_ctmm_all,abrahms,newprugh,newyoung,fishingcats) %>%
-  filter(individual.taxon.canonical.name %ni% c("Canis familiaris", "Felis catus","Vulpes bengalensis")) %>% #remove domestics and old vanak inds
-  rbind(newvanak) #add new vanak data (including updated dat for old inds, not much of an update but might as well use new dat)
 
 #list of individuals/species/study names -- used to filter individuals
 updatedstudynames <- read_csv("updated/study/here")
@@ -28,12 +26,13 @@ updatedstudynames <- read_csv("updated/study/here")
 
 fitsfolder <- "/all/fits/final" #name of folder where all model fits are stored (saved in calculate_fits.R)
 
-ALLRIDGE <- data.frame("id"=NA, "sp"=NA, "study"=NA, 
+ALLRIDGE <- data.frame("id"=NA, "sp"=NA, "study"=NA,
                        "updatedstudy"=NA,
-                       "mod_name"=NA,
+                       "mod_name"=NA, "n_fixes"=NA,
                        "duration"=NA, "year"=NA,
-                       "minsampling"=NA, "ess"=NA,
+                       "resampled?"=NA, "minsampling"=NA, "ess"=NA,
                        "speed_low"=NA,"speed_est"=NA,"speed_high"=NA,
+                       "mean_dist_day_low"=NA, "mean_dist_day_est"=NA, "mean_dist_day_high"=NA,
                        "area_mod_low"=NA, "area_mod_est"=NA, "area_mod_high"=NA,
                        "area_ud_low"=NA, "area_ud_est"=NA, "area_ud_high"=NA,
                        "tau_p_low"=NA, "tau_p_est"=NA, "tau_p_high"=NA,
@@ -63,9 +62,15 @@ mod_to_tracks <- function(track) {
       }
     }
     
-    if (updatedstudy=="Bertreaux") {
-      if (id%in%c("BORR","BVOB","JVOJ","OBBB","ORRR")) {
+    if (updatedstudy=="Berteaux") {
+      
+      if (id%in%c("BORR","BVOB","JVOJ","OBBB")) {
         track <- crop_range_res(track)
+      }
+      
+      if (id=="ORRR") {
+        track <- track %>%
+          filter(location.long > -80.1, location.lat < 73)
       }
       
     }
@@ -85,8 +90,8 @@ mod_to_tracks <- function(track) {
           distinct(timestamp, .keep_all=TRUE)
       }  
       if (id=="L30"){
-	track <- track %>%
-	  filter(timestamp > ymd_hms("2022-01-01 07:00:39"))
+	      track <- track %>%
+	        filter(timestamp > ymd_hms("2022-01-01 07:00:39"))
       }
       
     }
@@ -98,9 +103,13 @@ mod_to_tracks <- function(track) {
       if (id=="M7") {
         track <- track %>%  split_for_mean(dt="2014-11-30 00:15:00")
       }
+      if (id=="F30") {
+        track <- crop_range_res(track)
+      }
+      
     }
     
-    if (updatedstudy=="Critescu") {
+    if (updatedstudy=="Cristescu") {
       if (id%in%c("NCM1","NCM13","NCM8","NCM9")) {
         track <- crop_range_res(track)
       }
@@ -131,6 +140,12 @@ mod_to_tracks <- function(track) {
     if (id%in%c("B21")) {
       track <- crop_range_res(track)
     }
+    
+    if (id=="B42") {
+      track <- track %>%
+        slice(-c(53, 179)) #edits to get rid of unrealistic speed calculations
+    }
+    
   }
   
   if (updatedstudy=="Fryxell") {
@@ -138,6 +153,17 @@ mod_to_tracks <- function(track) {
     if (id=="148.71") {
         track <- track %>% 
           split_for_mean(dt="2010-07-22 22:00:34")
+    }
+    
+    if (id=="148.66") {
+      track <- crop_range_res(track)
+    }
+    
+    if (id=="148.81") {
+      track <- track %>%
+        mutate(timestamp=ymd_hms(timestamp)) %>%
+        filter(location.long > 34.2, location.long < 34.849) %>%
+        split_for_mean(dt="2010-10-15 18:00:00")
     }
     
     }
@@ -219,7 +245,7 @@ mod_to_tracks <- function(track) {
       }
     }
     
-    if (updatedstudy=="Kral") {
+    if (updatedstudy=="VanDerWeyde-Kral") {
       if (id%in%c("Kealiboka","Matsoshetsi")) {
         track <- crop_range_res(track)
       }
@@ -227,15 +253,15 @@ mod_to_tracks <- function(track) {
    
    if (updatedstudy=="Lantham") {
      if (id=="3") {
-	track <- track %>%
-	   split_for_mean(dt="2006-11-15 01:01:47")
+       track <- track %>%
+         split_for_mean(dt="2006-11-15 01:01:47")
      }
    }
 
    if (updatedstudy=="Lang") {
       if (id=="Felis_200") {
-	  track <- track %>%
-	    split_for_mean(dt="2021-04-01 00:01:00")
+        track <- track %>%
+          split_for_mean(dt="2021-04-01 00:01:00")
       }
    }
 
@@ -290,12 +316,12 @@ mod_to_tracks <- function(track) {
       if (id=="Panthera_36"){
         track <- track %>%
           filter(timestamp<=ymd_hms("2000-10-18 15:50:00")) %>%
-	  crop_range_res()
+          crop_range_res()
       }
       
     }
     
-    if (updatedstudy=="Oliveira-Santos.Dataset1") {
+    if (updatedstudy=="Azevedo.Lemos") { #originally Oliveira-Santos.Dataset1
       if (id%in%c("150011","150041","150102","150312","150402","150462",
                   "150552","150681","163181","164820","164886","164900",
                   "164957","1649671","165164","165194","1651941","165224","165252","1652521")) {
@@ -306,9 +332,14 @@ mod_to_tracks <- function(track) {
       if (id%in%c("CAN13","CAN49", "Grupo005_Id001","Grupo005_Id032")) {
         track <- crop_range_res(track)
       }
+      
+      if (id=="shack") {
+        track <- crop_range_res(track)
+      }
+      
     }
     
-    if (updatedstudy=="Oliveira-Santos.Dataset2") {
+    if (updatedstudy=="Oliveira-Santos") { #originally Oliveira-Santos.Dataset2
       if (id%in%c("150041_GustavoCT")) {
         track <- crop_range_res(track)
       }
@@ -318,8 +349,14 @@ mod_to_tracks <- function(track) {
       }
     }
     
-    if (updatedstudy=="Palomares") {
-      if (id%in%c("Garfio", "Patsuezo", "Lynx_Ketamina", "Lynx_Llerena", 
+    if (updatedstudy=="Palomares") { #originally grouped with palacios gonzales no idea why
+      if (id%in%c("Garfio", "Patsuezo")) {
+        track <- crop_range_res(track) 
+      }
+    }
+         
+  if (updatedstudy=="Palacios Gonzalez") { #originally grouped w palomares, no idea why
+    if (id%in%c("Lynx_Ketamina", "Lynx_Llerena", 
                   "Lynx_Miera", "Lynx_Negral", "Lynx_Nitrógeno")) {
         track <- crop_range_res(track)
       }
@@ -336,11 +373,30 @@ mod_to_tracks <- function(track) {
       
     }
   
+  if (updatedstudy=="Patterson.BD") {
+    if (id=="Diana") {
+      track <- track %>%
+        slice(-c(66,69,70,72)) #edits to get rid of unrealistic speed calculations
+    }
+  }
+  
   if (updatedstudy=="Patterson.B") {
     
-    if (id%in%c("W97143","W97155","W97177","W97185","W97188","W97189","W97311","W97359",
+    if (id%in%c("W97143","W97155","W97177","W97185","W97189","W97311","W97359",
                 "H01", "T21", "W215", "W1605")) {
       track <- crop_range_res(track)
+    }
+    
+    if(id=="W97188") {
+      track <- track %>% crop_range_res() %>% slice(-c(103))
+    }
+    
+    if(id=="W97363") {
+      track <- track %>% slice(-c(70, 2421, 3211)) #edits to get rid of unrealistic speed calculations
+    }
+    
+    if(id=="W97381") {
+      track <- track %>% slice(-c(2493)) #edits to get rid of unrealistic speed calculations
     }
     
     if(id=="W97303") {
@@ -463,14 +519,6 @@ mod_to_tracks <- function(track) {
           split_for_mean(dt="2017-04-30 01:00:49")
       }
     }
-  
-    if (updatedstudy=="Tatler Kalamurina") {
-      
-      if(id=="JT38") { 
-        track <- crop_range_res(track) %>%
-          filter(location.long < 137.9828, location.lat < -27.85)
-      }
-    }
     
     if (updatedstudy=="Vanak") {
       if (id=="Jackal 02 (Zoom)") {
@@ -482,6 +530,21 @@ mod_to_tracks <- function(track) {
           drop_na(location.lat) %>%
           crop_range_res()
       }
+      
+      if (id=="Jungle cat 06 (Bubbly)") {
+        track <- track %>%
+          filter(location.long > 74.6)
+      }
+      
+      if (id=="Fox 09 (Broken Tail)") {
+        track <- crop_range_res(track)
+      }
+      
+      if (id=="Fox 20 (Bijli)") {
+        track <- track %>%
+          filter(location.lat > 18.34)
+      }
+      
     }
     
     if (updatedstudy=="Walton") {
@@ -492,6 +555,10 @@ mod_to_tracks <- function(track) {
       if (id=="Bengt") {
         track <- track %>%
           filter(timestamp<ymd_hms("2015-02-02 07:39:00"))
+      }
+      
+      if (id=="Spank") {
+        track <- crop_range_res(track)
       }
       
     }
@@ -546,14 +613,6 @@ mod_to_tracks <- function(track) {
       }
     }
     
-    if (updatedstudy=="Wysong") {
-      
-       if (id=="Penelope") {
-        track <- track %>%
-          split_for_mean(dt="2014-10-01 01:00:00")
-      }
-    }
-  
   if (updatedstudy=="Young") {
     if (id%in%c("C037","B004","B009")) {
       track <- crop_range_res(track)
@@ -575,8 +634,6 @@ get_minsampling <- function(individual) {
 }
 
 #resample inds with minsampling <60s
-#NOTE this function was written before the most recent update which changed the way the function "cut" works
-#will post edited version of this function soon
 resample <- function(track) {
   
   if (get_minsampling(as.telemetry(track)) < 60) { 
@@ -687,8 +744,8 @@ get_stats <- function(track, nametag) { #nametag is just a way to differentiate 
   area_model <- summary(BEST_FIT, units=F)$CI[1,]
   area_ud <- summary(UD, units=F)$CI[1,]
   
-  if ((mod_name == "OU anisotropic") || (mod_name == "OU") 
-      || (mod_name == "OUf anisotropic") || (mod_name == "OUf")) {
+  if ((mod_name == "OU anisotropic") || (mod_name == "OU")
+      || (mod_name == "OU anisotropic error") || (mod_name == "OU error")) {
     
     tau_p <- summary(BEST_FIT, units=F)$CI[2,]
     
@@ -703,56 +760,64 @@ get_stats <- function(track, nametag) { #nametag is just a way to differentiate 
     dists <- c(NA,NA,NA)
   }
   
-  else if ((mod_name == "OUF anisotropic") || (mod_name == "OUF")) {
+  else if ((mod_name == "OUF anisotropic") || (mod_name == "OUF")
+           || (mod_name == "OUF anisotropic error") || (mod_name == "OUF error")
+           || (mod_name == "OUf anisotropic") || (mod_name == "OUf")
+           || (mod_name == "OUf anisotropic error") || (mod_name == "OUf error")) {
     
     tau_p <- summary(BEST_FIT, units=F)$CI[2,]
     tau_v <- summary(BEST_FIT, units=F)$CI[3,]
     sigma_p <- ctmm:::area.covm(BEST_FIT$sigma)
     
     b_l_s <- sqrt((tau_v[[2]]/tau_p[[2]]) *  sigma_p)
-  
+    
     speed <- speed(BEST_FIT, units=F)$CI
-
+    
     #dist/day sloppy version
     #mod from https://doi.org/10.1186/s40462-019-0177-1 s2
-  #   track$day <-cut(track$timestamp, breaks="day") 
-  #   days <- unique(track$day)
-  #   
-  #   #An empty list to fill with the results
-  #   dists <- list()
-  #   
-  #   #Loop over the number of days
-  #   for(i in 1:length(days)){
-  #     
-  #     #select data for the day in question
-  #     day.dat <- track[which(track$day == days[i]),]
-  #     samp.time <- diff(c(day.dat$t[1], day.dat$t[nrow(day.dat)])) #get duration of sampling time
-  #     ctmm_dist <- speed*samp.time # get the estimated distance travelled (in m) 
-  #     
-  #     x <- c(ctmm_dist[1], #min
-  #            ctmm_dist[2], #est dist
-  #            ctmm_dist[3]) #max
-  #     names(x) <- c("min.dist", "est.dist", "max.dist")
-  #     dists[[i]] <- x
-  #     
-  #     }
-  #     
-  #   dists <- as.data.frame(do.call(rbind , dists)) %>%
-  #     colMeans #get mean dist travelled per day 
+    track$day <-cut(track$timestamp, breaks="day")
+    days <- unique(track$day)
+    
+    #An empty list to fill with the results
+    dists <- list()
+    
+    #Loop over the number of days
+    for(i in 1:length(days)){
+      
+      #select data for the day in question
+      day.dat <- track[which(track$day == days[i]),]
+      samp.time <- diff(c(day.dat$t[1], day.dat$t[nrow(day.dat)])) #get duration of sampling time
+      ctmm_dist <- speed*samp.time # get the estimated distance travelled (in m) 
+      
+      x <- c(ctmm_dist[1], #min
+             ctmm_dist[2], #est dist
+             ctmm_dist[3]) #max
+      names(x) <- c("min.dist", "est.dist", "max.dist")
+      dists[[i]] <- x
+      
+    }
+    
+    dists <- as.data.frame(do.call(rbind , dists)) %>%
+      colMeans #get mean dist travelled per day 
+    
   }
 
   else {
 
-    #if fit is IID/IID anisotropic/Ouf don't bother calculating ridge dens
-    return(c(paste(id, nametag, sep=""),
-                species, study, updatedstudy, mod_name,
-                dur[1][[1]], dur[2][[1]], minsampling, ess,
-                NA, NA, NA, NA, NA, NA,
-                area_model[[1]], area_model[[2]], area_model[[3]],
-                area_ud[[1]], area_ud[[2]], area_ud[[3]],
-                NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA))
-  
-    next
+    #IID/IID error 
+    
+    #tau_p not in IID
+    tau_p <- c(NA,NA,NA)
+    
+    #so the summary function is returning values for OU/OU anisotropic tau_v and sigma 
+    #but since they were excluded before I'm going to keep doing that unless told otherwise
+    tau_v <- c(NA,NA,NA)
+    sigma_p <- NA
+    b_l_s <- NA
+    
+    #speed is inf if not ouf/ouf anisotropic so manually insert na and ask Chris
+    speed <- c(NA,NA,NA)
+    dists <- c(NA,NA,NA)
 
   }
   
@@ -767,19 +832,22 @@ get_stats <- function(track, nametag) { #nametag is just a way to differentiate 
   UD_High@polygons[[1]] <- NULL
   UD_High@plotOrder <- c(1L)
   UD_High <- rgeos::gMakeValid(UD_High)
+  #UD_High <- sf::st_make_valid(UD_High)
 
   UD_Mean <- SpatialPolygonsDataFrame.UD(UD)
   UD_Mean@polygons[[3]] <- NULL
   UD_Mean@polygons[[1]] <- NULL
   UD_Mean@plotOrder <- c(1L)
   UD_Mean <- rgeos::gMakeValid(UD_Mean)
+  #UD_Mean <- sf::st_make_valid(UD_Mean)
 
   UD_Low <- SpatialPolygonsDataFrame.UD(UD)
   UD_Low@polygons[[3]] <- NULL
   UD_Low@polygons[[2]] <- NULL
   UD_Low@plotOrder <- c(1L)
   UD_Low <- rgeos::gMakeValid(UD_Low)
-
+  #UD_Low <- sf::st_make_valid(UD_Low)
+  
   #get ridges as contourLines
   ridges <- grDevices::contourLines(UD$r$x, UD$r$y, RIDGE, level=threshold)
   lines <- list()
@@ -794,27 +862,37 @@ get_stats <- function(track, nametag) { #nametag is just a way to differentiate 
   #get all ridge lengths and densities
   ridges_high <- tryCatch({ raster::intersect(all_lines, UD_High) },
                           error= function(e) { ridges_high <- 0 })
-  length_h <- tryCatch({ rgeos::gLength(ridges_high) },
-                       error= function(e) { length_h <- 0 })
+  #convert to sf bc rgeos is being retired
+  ridges_high <- tryCatch( { sf::st_as_sf(ridges_high) },
+                           error=function(e) { ridges_high <- 0 })
+  length_h <-  tryCatch({sum(sf::st_length(ridges_high)) },
+                        error= function(e) { length_h <- 0 })
   dens_h <- length_h^2/area_ud[[3]]
 
   ridges_mean <- tryCatch({raster::intersect(all_lines, UD_Mean) },
                           error= function(e) { ridges_mean <- 0 })
-  length_m <-  tryCatch({rgeos::gLength(ridges_mean) },
+  #convert to sf bc rgeos is being retired
+  ridges_mean <- tryCatch({ sf::st_as_sf(ridges_mean) },
+                          error= function(e) { ridges_mean <- 0 })
+  length_m <-  tryCatch({sum(sf::st_length(ridges_mean)) },
                         error= function(e) { length_m <- 0 })
   dens_m <- length_m^2/area_ud[[2]]
 
   ridges_low <- tryCatch({raster::intersect(all_lines, UD_Low) },
                          error= function(e) { ridges_low <- 0 })
-  length_l <- tryCatch({rgeos::gLength(ridges_low) },
-                       error= function(e) { length_l <- 0 })
+  #convert to sf bc rgeos is being retired
+  ridges_low <- tryCatch({ sf::st_as_sf(ridges_low) },
+                         error= function(e) { ridges_low <- 0 })
+  length_l <-  tryCatch({sum(sf::st_length(ridges_low)) },
+                        error= function(e) { length_l <- 0 })
   dens_l <- length_l^2/area_ud[[1]]
+  
 
-  returned <- c(paste(id, nametag, sep=""), 
-                species, study, updatedstudy, mod_name, 
-                dur[1][[1]], dur[2][[1]], minsampling, ess,
+  returned <- c(paste(id, nametag, sep=""),
+                species, study, updatedstudy, mod_name, n_fixes,
+                dur[1][[1]], dur[2][[1]], resamp, minsampling, ess,
                 speed[[1]], speed[[2]], speed[[3]],
-		dists[[1]], dists[[2]], dists[[3]],
+                dists[[1]], dists[[2]], dists[[3]],
                 area_model[[1]], area_model[[2]], area_model[[3]],
                 area_ud[[1]], area_ud[[2]], area_ud[[3]],
                 tau_p[[1]], tau_p[[2]], tau_p[[3]],
@@ -832,10 +910,16 @@ get_stats <- function(track, nametag) { #nametag is just a way to differentiate 
 
     print(file)
     load(paste(folder, "/", file, sep = ""))
+    resamp <- "n" #keep track of which individuals were resampled
 
 #  for (file in list.files(folder)) {
     if(grepl("_a", file)==TRUE) {
   
+      #note if resampled
+      if (get_minsampling(as.telemetry(alldata %>%
+                                       filter(id==str_replace(str_replace(file, "_a", ""), ".rda$", "")) %>%
+                                       dplyr::select(-c("id")))) < 60) { resamp <- "y" }
+      
       track <- alldata %>%
         filter(id==str_replace(str_replace(file, "_a", ""), ".rda$", "")) %>%
         dplyr::select(-c("id")) %>%
@@ -843,13 +927,19 @@ get_stats <- function(track, nametag) { #nametag is just a way to differentiate 
         mod_to_tracks()
       
       print(track)	
-      returned <- get_stats(track, "_a")
+      returned <- get_stats(track, resamp, "_a")
       
       return(returned)
       #next
     }
     
     if (grepl("_b", file)==TRUE) {
+      
+      #note if resampled
+      if (get_minsampling(as.telemetry(alldata %>%
+                                       filter(id==str_replace(str_replace(file, "_a", ""), ".rda$", "")) %>%
+                                       dplyr::select(-c("id")))) < 60) { resamp <- "y" }
+      
       
       track <- alldata %>%
         filter(id==str_replace(str_replace(file, "_b", ""), ".rda$", "")) %>%
@@ -858,11 +948,16 @@ get_stats <- function(track, nametag) { #nametag is just a way to differentiate 
         mod_to_tracks()
       
       print(track)
-      return(get_stats(track, "_b"))
+      return(get_stats(track, resamp, "_b"))
 
     }
 
     else {
+      
+      #note if resampled
+      if (get_minsampling(as.telemetry(alldata %>%
+                                       filter(id==str_replace(str_replace(file, "_a", ""), ".rda$", "")) %>%
+                                       dplyr::select(-c("id")))) < 60) { resamp <- "y" }
       
       #select id by recreating og id and then dropping that column
       track <- alldata %>%
@@ -873,7 +968,7 @@ get_stats <- function(track, nametag) { #nametag is just a way to differentiate 
         mod_to_tracks() #make necessary mods
       
       print(track)
-      return(get_stats(track, ""))
+      return(get_stats(track, resamp, ""))
       
     }
 

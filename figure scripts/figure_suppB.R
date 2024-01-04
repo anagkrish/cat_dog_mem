@@ -25,7 +25,7 @@ mod_to_tracks <- function(track) {
     }
   }
   
-  if (updatedstudy=="Bertreaux") {
+  if (updatedstudy=="Berteaux") {
     if (id%in%c("BORR","BVOB","JVOJ","OBBB","ORRR")) {
       track <- crop_range_res(track)
     }
@@ -50,7 +50,7 @@ mod_to_tracks <- function(track) {
     }
   }
   
-  if (updatedstudy=="Critescu") {
+  if (updatedstudy=="Cristescu") {
     if (id%in%c("NCM1","NCM13","NCM8","NCM9")) {
       track <- crop_range_res(track)
     }
@@ -133,7 +133,7 @@ mod_to_tracks <- function(track) {
     }
   }
   
-  if (updatedstudy=="Kral") {
+  if (updatedstudy=="VanDerWeyde-Kral") {
     if (id%in%c("Kealiboka","Matsoshetsi")) {
       track <- crop_range_res(track)
     }
@@ -168,7 +168,7 @@ mod_to_tracks <- function(track) {
     
   }
   
-  if (updatedstudy=="Oliveira-Santos.Dataset1") {
+  if (updatedstudy=="Azevedo.Lemos") { #originally Oliveira-Santos.Dataset1
     if (id%in%c("150011","150041","150102","150312","150402","150462",
                 "150552","150681","163181","164820","164886","164900",
                 "164957","1649671","165164","165194","1651941","165224",
@@ -189,7 +189,7 @@ mod_to_tracks <- function(track) {
     }
   }
   
-  if (updatedstudy=="Oliveira-Santos.Dataset2") {
+  if (updatedstudy=="Oliveira-Santos") { #originally Oliveira-Santos.Dataset2
     if (id%in%c("150041_GustavoCT")) {
       track <- crop_range_res(track)
     }
@@ -199,8 +199,15 @@ mod_to_tracks <- function(track) {
     }
   }
   
-  if (updatedstudy=="Palomares") {
-    if (id%in%c("Garfio", "Patsuezo", "Lynx_Ketamina", "Lynx_Llerena", 
+  if (updatedstudy=="Palomares") { #originally combined w Palacios Gonzales
+    if (id%in%c("Garfio", "Patsuezo")) {
+       track <- crop_range_res(track)
+      }
+    
+    } 
+  
+  if (updatedstudy=="Palacios Gonzales") { #originally combined w Palomares
+    if (id%in%c( "Lynx_Ketamina", "Lynx_Llerena", 
                 "Lynx_Miera", "Lynx_Negral", "Lynx_Nitrógeno")) {
       track <- crop_range_res(track)
     }
@@ -320,14 +327,6 @@ mod_to_tracks <- function(track) {
   if (updatedstudy=="SimonTrinzenHerrmannGotz") {
     if (id%in%c("79","130","127","92")) {
       track <- crop_range_res(track)
-    }
-  }
-  
-  if (updatedstudy=="Tatler Kalamurina") {
-    
-    if(id=="JT38") { 
-      track <- crop_range_res(track) %>%
-        filter(location.long < 137.9828, location.lat < -27.85)
     }
   }
   
@@ -527,6 +526,7 @@ ridge <- read_csv("ridge.csv") %>%
 days_full <- days_dat %>%
   separate(col=name, into = c("name","yeartracked"), sep="_(?=[0-9]{4}$)", remove=T) %>% #regex is to get last undersscore
   left_join(ridge, by=c("name"="tojoin")) %>%
+  #edits to species names (made way in the beginning)
   mutate(Species = replace(Species, Species == "Panthera pardus tulliana", "Panthera pardus"),
          Species = replace(Species, Species == "Panthera tulliana", "Panthera pardus"),
          Species = replace(Species, Species == "Panthera pardus orientalis", "Panthera pardus"),
