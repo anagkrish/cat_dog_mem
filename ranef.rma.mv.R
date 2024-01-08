@@ -1,3 +1,6 @@
+#modified random effects function from metafor
+# developed by Dr. Chris Fleming Jan 2023
+
 ranef2 <- function(object, level, digits, transf, targs, verbose=FALSE, ...)
 {
  mstyle <- metafor:::.get.mstyle("crayon" %in% .packages())
