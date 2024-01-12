@@ -12,13 +12,8 @@ library(ncdf4)
 
 "%ni%" <- Negate("%in%")
 
+#load movement object alldata for all 1528 individuals
 load("movement/data/here")
-
-alldata <- alldata %>%
-  unite(individual.local.identifier, individual.taxon.canonical.name, 
-        study.id, col="id", sep="", remove=F) %>%
-  drop_na(individual.taxon.canonical.name, location.lat, location.long) %>%
-  filter(individual.taxon.canonical.name != "Hyaena hyaena")
 
 #copied from getridgefromfits, edit tracks so you extract correct extent for cropped individuals
 mod_to_tracks <- function(track) {
@@ -36,11 +31,15 @@ mod_to_tracks <- function(track) {
     }
   }
   
-  if (updatedstudy=="Bertreaux") {
-    if (id%in%c("BORR","BVOB","JVOJ","OBBB","ORRR")) {
+  if (updatedstudy=="Berteaux") {
+    if (id%in%c("BORR","BVOB","JVOJ","OBBB")) {
       track <- crop_range_res(track)
     }
-    
+    if (id=="ORRR") {
+      track <- track %>%
+        filter(location.long > NA, #coords withheld 
+               location.lat < NA) #coords withheld
+    }
   }
   
   if(updatedstudy=="Clark") {
@@ -61,7 +60,7 @@ mod_to_tracks <- function(track) {
     }
   }
   
-  if (updatedstudy=="Critescu") {
+  if (updatedstudy=="Cristescu") {
     if (id%in%c("NCM1","NCM13","NCM8","NCM9")) {
       track <- crop_range_res(track)
     }
@@ -80,7 +79,7 @@ mod_to_tracks <- function(track) {
     
     if (id=="Lucky") {
       track <- crop_range_res(track) %>%
-        filter(location.lat > -32.845)
+        filter(location.lat > NA) #coords withheld
     }
   }
   
@@ -88,6 +87,21 @@ mod_to_tracks <- function(track) {
     if (id%in%c("B21")) {
       track <- crop_range_res(track)
     }
+  }
+  
+  if (updatedstudy=="Fryxell") {
+    
+    if (id=="148.66") {
+      track <- crop_range_res(track)
+    }
+    
+    if (id=="148.81") {
+      track <- track %>%
+        mutate(timestamp=ymd_hms(timestamp)) %>%
+        filter(location.long > NA, #coords withheld 
+               location.lat < NA) #coords withheld
+    }
+    
   }
   
   if (updatedstudy=="Garthe") {
@@ -138,13 +152,18 @@ mod_to_tracks <- function(track) {
   }
   
   if (updatedstudy=="Kays") {
+    
+    if (id%in%c("30822")) {
+      track <- crop_range_res(track)
+    }
+    
     if (id=="30839") {
       track <- track %>%
         filter(timestamp > ymd_hms("2011-08-01 00:03:07"))
     }
   }
   
-  if (updatedstudy=="Kral") {
+  if (updatedstudy=="VanDerWeyde-Kral") {
     if (id%in%c("Kealiboka","Matsoshetsi")) {
       track <- crop_range_res(track)
     }
@@ -179,7 +198,7 @@ mod_to_tracks <- function(track) {
     
   }
   
-  if (updatedstudy=="Oliveira-Santos.Dataset1") {
+  if (updatedstudy=="Azevedo.Lemos") {
     if (id%in%c("150011","150041","150102","150312","150402","150462",
                 "150552","150681","163181","164820","164886","164900",
                 "164957","1649671","165164","165194","1651941","165224",
@@ -200,18 +219,26 @@ mod_to_tracks <- function(track) {
     }
   }
   
-  if (updatedstudy=="Oliveira-Santos.Dataset2") {
+  if (updatedstudy=="Oliveira-Santos") {
     if (id%in%c("150041_GustavoCT")) {
       track <- crop_range_res(track)
     }
     if (id=="kayapo") {
       track <- track %>%
-        filter(location.lat > -18.34)
+        filter(location.lat > NA) #coords withheld
     }
   }
   
   if (updatedstudy=="Palomares") {
-    if (id%in%c("Garfio", "Patsuezo", "Lynx_Ketamina", "Lynx_Llerena", 
+    if (id%in%c("Garfio", "Patsuezo")) {
+      
+      track <- crop_range_res(track)
+      
+    } 
+  }
+    
+    if (updatedstudy=="Palacios Gonzalez") {
+      if (id%in%c("Lynx_Ketamina", "Lynx_Llerena", 
                 "Lynx_Miera", "Lynx_Negral", "Lynx_Nitrógeno")) {
       track <- crop_range_res(track)
     }
@@ -231,7 +258,7 @@ mod_to_tracks <- function(track) {
     
     if(id=="T50") { 
       track <- track %>%
-        filter(location.lat > 48) 
+        filter(location.lat > NA) #coords withheld
     }
     
     if (track$individual.taxon.canonical.name[[1]]=="Canis lupus x lycaon") {
@@ -263,7 +290,7 @@ mod_to_tracks <- function(track) {
                           study.id=track$study.id[[1]]) #skip duplicated coyotes
     }
     
-    if (id%in%c("B_MVBOB54F","B_MVBOB66M","B_NEBOB33M","B_NEBOB35M")) {
+    if (id%in%c("B_MVBOB54F","B_MVBOB66M","B_NEBOB33M","B_NEBOB35M", "C_NECOY20F")) {
       track <- crop_range_res(track)
     }
     
@@ -274,7 +301,7 @@ mod_to_tracks <- function(track) {
     
     if (id=="B_NEBOB23M") { 
       track <- crop_range_res(track) %>%
-        filter(location.long < -118)
+        filter(location.long < NA) #coords withheld
     }
     
   }
@@ -293,7 +320,7 @@ mod_to_tracks <- function(track) {
     }
     if (id=="Ada"){ 
       track <- crop_range_res(track) %>%
-        filter(location.long < 141.1)
+        filter(location.long < NA) #coords withheld
     }
   }
   
@@ -310,7 +337,7 @@ mod_to_tracks <- function(track) {
     
     if(id=="Xolani") {
       track <- track %>%
-        filter(location.lat < -34)
+        filter(location.lat < NA) #coords withheld
     }
   }
   
@@ -334,14 +361,6 @@ mod_to_tracks <- function(track) {
     }
   }
   
-  if (updatedstudy=="Tatler Kalamurina") {
-    
-    if(id=="JT38") { 
-      track <- crop_range_res(track) %>%
-        filter(location.long < 137.9828, location.lat < -27.85)
-    }
-  }
-  
   if (updatedstudy=="Vanak") {
     if (id=="Jackal 02 (Zoom)") {
       track <- crop_range_res(track)
@@ -352,6 +371,21 @@ mod_to_tracks <- function(track) {
         drop_na(location.lat) %>%
         crop_range_res()
     }
+    
+    if (id=="Jungle cat 06 (Bubbly)") {
+      track <- track %>%
+        filter(location.long > NA) #coords withheld
+    }
+    
+    if (id=="Fox 09 (Broken Tail)") {
+      track <- crop_range_res(track)
+    }
+    
+    if (id=="Fox 20 (Bijli)") {
+      track <- track %>%
+        filter(location.lat > NA) #coords withheld
+    }
+    
   }
   
   if (updatedstudy=="Walton") {
@@ -363,7 +397,9 @@ mod_to_tracks <- function(track) {
       track <- track %>%
         filter(timestamp<ymd_hms("2015-02-02 07:39:00"))
     }
-    
+    if (id=="Spank") {
+      track <- crop_range_res(track)
+    }
   }
   
   if (updatedstudy=="Wheeldon") {
@@ -379,7 +415,7 @@ mod_to_tracks <- function(track) {
   }
   
   if (updatedstudy=="Wilmers") {
-    if (id%in%c("Astrid","Charlotte","Hedley","19F","35M","43F","54M","66M","95F")) {
+    if (id%in%c("Astrid","Charlotte","Hedley","19F","35M","43F","54M","66M","95F","Chunga")) {
       track <- crop_range_res(track)
     }
   }

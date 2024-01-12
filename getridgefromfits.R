@@ -70,7 +70,8 @@ mod_to_tracks <- function(track) {
       
       if (id=="ORRR") {
         track <- track %>%
-          filter(location.long > -80.1, location.lat < 73)
+          filter(location.long > NA, 
+                 location.lat < NA) #coords withheld
       }
       
     }
@@ -128,7 +129,7 @@ mod_to_tracks <- function(track) {
       
       if (id=="Lucky") {
         track <- crop_range_res(track) %>%
-          filter(location.lat > -32.845)
+          filter(location.lat > NA) #coords withheld
       }
       if (id=="BBJackal_Rooky") {
         track <- crop_range_res(track) %>% 
@@ -162,7 +163,8 @@ mod_to_tracks <- function(track) {
     if (id=="148.81") {
       track <- track %>%
         mutate(timestamp=ymd_hms(timestamp)) %>%
-        filter(location.long > 34.2, location.long < 34.849) %>%
+        filter(location.long > NA, 
+               location.lat < NA) #coords withheld
         split_for_mean(dt="2010-10-15 18:00:00")
     }
     
@@ -345,7 +347,7 @@ mod_to_tracks <- function(track) {
       }
       if (id=="kayapo") {
         track <- track %>%
-          filter(location.lat > -18.34)
+          filter(location.lat > NA) #coords withheld
       }
     }
     
@@ -411,7 +413,7 @@ mod_to_tracks <- function(track) {
     
     if(id=="T50") { 
       track <- track %>%
-        filter(location.lat > 48) 
+        filter(location.lat > NA) #coords withheld 
     }
    
     if (species=="Canis lupus x lycaon") {
@@ -449,7 +451,7 @@ mod_to_tracks <- function(track) {
       
       if (id=="B_NEBOB23M") { 
         track <- crop_range_res(track) %>%
-          filter(location.long < -118)
+          filter(location.long < NA) #coords withheld
       }
       
     }
@@ -471,7 +473,7 @@ mod_to_tracks <- function(track) {
       }
       if (id=="Ada"){ 
         track <- crop_range_res(track) %>%
-          filter(location.long < 141.1)
+          filter(location.long < NA) #coords withheld
       }
     }
     
@@ -491,7 +493,7 @@ mod_to_tracks <- function(track) {
       }
       if(id=="Xolani") {
         track <- track %>%
-          filter(location.lat < -34)
+          filter(location.lat < NA) #coords withheld
       }
     }
     
@@ -533,7 +535,7 @@ mod_to_tracks <- function(track) {
       
       if (id=="Jungle cat 06 (Bubbly)") {
         track <- track %>%
-          filter(location.long > 74.6)
+          filter(location.long > NA) #coords withheld
       }
       
       if (id=="Fox 09 (Broken Tail)") {
@@ -542,7 +544,7 @@ mod_to_tracks <- function(track) {
       
       if (id=="Fox 20 (Bijli)") {
         track <- track %>%
-          filter(location.lat > 18.34)
+          filter(location.lat > NA) #coords withheld
       }
       
     }

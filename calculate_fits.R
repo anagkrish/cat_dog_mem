@@ -319,7 +319,8 @@ if (id%in%c("BORR","BVOB","JVOJ","OBBB","JVMJ")) {
 
 if (id=="ORRR") {
   track <- track %>%
-	 filter(location.long > -80.1, location.lat < 73)
+	 filter(location.long > NA, 
+	        location.lat < NA) #coords withheld
 }
 }
 
@@ -371,7 +372,7 @@ if (id%in%c("BBJackal_Rain")) {
 
 if (id=="Lucky") {
     track <- crop_range_res(track) %>%
-	    filter(location.lat > -32.845)
+	    filter(location.lat > NA) #coords withheld
 }
 if (id=="BBJackal_Rooky") {
     track <- crop_range_res(track) %>% 
@@ -411,7 +412,8 @@ if (updatedstudy=="Fryxell") {
   if (id=="148.81") {
     track <- track %>%
       mutate(timestamp=ymd_hms(timestamp)) %>%
-      filter(location.long > 34.2, location.long < 34.849) %>%
+      filter(location.long > NA, 
+             location.long < NA) %>% #coords withheld
       split_for_mean(dt="2010-10-15 18:00:00")
   }
 }
@@ -604,7 +606,7 @@ if (id%in%c("150041_GustavoCT")) {
 }
 if (id=="kayapo") {
     track <- track %>%
-            filter(location.lat > -18.34)
+            filter(location.lat > NA) #coords withheld
 }
 }
 
@@ -655,7 +657,7 @@ if (id=="C_MVCOY98M") {
 
 if (id=="B_NEBOB23M") { 
     track <- crop_range_res(track) %>%
-  filter(location.long < -118)
+  filter(location.long < NA) #coords withheld
 }
 
 if (id=="C_NECOYaF") {
@@ -693,7 +695,7 @@ if(id=="W97303") {
 }
 if(id=="T50") { 
    track <- track %>%
-	   filter(location.lat > 48) 
+	   filter(location.lat > NA) #coords withheld 
 }
 if(id=="T02") {
    track <- track %>%
@@ -727,7 +729,7 @@ if (id%in%c("Kev","Mem")) {
 }
 if (id=="Ada"){ 
     track <- crop_range_res(track) %>%
-  filter(location.long < 141.1)
+  filter(location.long < NA) #coords withheld
 }
 }
 
@@ -749,7 +751,7 @@ if (id=="Azure") {
 }
 if(id=="Xolani") {
     track <- track %>%
-	    filter(location.lat < -34)
+	    filter(location.lat < NA) #coords withheld
 }
 }
 
@@ -789,7 +791,7 @@ if(id%in%c("Fox 25 (Chandra)","Jungle cat 08 (Sultan)", "Jungle Cat 17 (Momo)"))
 }
 if (id=="Jungle cat 06 (Bubbly)") {
   track <- track %>%
-    filter(location.long > 74.6)
+    filter(location.long > NA) #coords withheld
 }
   
 if (id=="Fox 09 (Broken Tail)") {
@@ -798,7 +800,7 @@ if (id=="Fox 09 (Broken Tail)") {
   
 if (id=="Fox 20 (Bijli)") {
   track <- track %>%
-    filter(location.lat > 18.34)
+    filter(location.lat > NA) #coords withheld
 }
   
 }
