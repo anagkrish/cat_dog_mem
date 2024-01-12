@@ -55,7 +55,7 @@ mod_to_tracks <- function(track) {
   }
   
   if (updatedstudy=="Conner") {
-    if (id%in%c("F46","M21")) {
+    if (id%in%c("F46","M21", "F30")) {
       track <- crop_range_res(track)
     }
   }
@@ -89,6 +89,14 @@ mod_to_tracks <- function(track) {
     }
   }
   
+  if (updatedstudy=="Frair") {
+    if (id=="M5") {
+      track <- track %>%
+        filter(timestamp > ymd_hms("2006-01-01 18:28:59")) %>%
+        crop_range_res()
+    }
+  }
+  
   if (updatedstudy=="Fryxell") {
     
     if (id=="148.66") {
@@ -113,7 +121,7 @@ mod_to_tracks <- function(track) {
   }
   
   if (updatedstudy=="Getz-Bellan") {
-    if (id%in%c("CM18","CM26","CM36","CM95")) {
+    if (id%in%c("CM18","CM26","CM36","CM95", "CM83")) {
       track <- crop_range_res(track)
     }
   }
@@ -217,6 +225,11 @@ mod_to_tracks <- function(track) {
     if (id%in%c("CAN13","CAN49", "Grupo005_Id001","Grupo005_Id032")) {
       track <- crop_range_res(track)
     }
+    
+    if (id=="shack") {
+      track <- crop_range_res(track)
+    }
+    
   }
   
   if (updatedstudy=="Oliveira-Santos") {
