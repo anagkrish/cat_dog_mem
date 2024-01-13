@@ -313,7 +313,7 @@ if (id%in%c("W07")) {
 }
 
 if (updatedstudy=="Berteaux") {
-if (id%in%c("BORR","BVOB","JVOJ","OBBB","JVMJ")) {
+if (id%in%c("BORR","BVOB","JVOJ","OBBB")) {
     track <- crop_range_res(track)
 }
 
@@ -351,6 +351,9 @@ if (id%in%c("F46","M21")) {
 if (id=="M7") {
     track <- split_for_mean(dt="2014-11-30 00:15:00")
 }
+  if (id=="F30") {
+    track <- crop_range_res(track)
+  }
 }
 
 if (updatedstudy=="Cristescu") {
@@ -386,6 +389,9 @@ if (id=="M5") {
     filter(timestamp > ymd_hms("2006-01-01 18:28:59")) %>%
     crop_range_res()
 }
+  if (id=="Gray1") {
+    track <- track %>% slice(-c(210)) #edits for speed
+  }
 }
 
 if (updatedstudy=="Ferrell") {
@@ -687,6 +693,10 @@ if(id=="W97188") {
   
   if(id=="W97363") {
     track <- track %>% slice(-c(70, 2421, 3211)) #edits to speed
+  }
+  
+  if(id=="W97381") {
+    track <- track %>% slice(-c(2493)) #edits to get rid of unrealistic speed calculations
   }
   
 if(id=="W97303") {

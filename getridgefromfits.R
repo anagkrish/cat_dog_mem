@@ -143,6 +143,9 @@ mod_to_tracks <- function(track) {
         filter(timestamp > ymd_hms("2006-01-01 18:28:59")) %>%
         crop_range_res()
     }
+    if (id=="Gray1") {
+      track <- track %>% slice(-c(210)) #edits for speed
+    }
   }
   
   if (updatedstudy=="Ferrell") {

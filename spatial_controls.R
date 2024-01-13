@@ -51,7 +51,10 @@ mod_to_tracks <- function(track) {
       track <- track %>%
         distinct(timestamp, .keep_all=TRUE)
     }
-    
+    if (id=="L30"){
+      track <- track %>%
+        filter(timestamp > ymd_hms("2022-01-01 07:00:39"))
+    }
   }
   
   if (updatedstudy=="Conner") {
@@ -73,7 +76,7 @@ mod_to_tracks <- function(track) {
   }
   
   if (updatedstudy=="Drouilly") {
-    if (id%in%c("BBJackal_Rain")) {
+    if (id%in%c("BBJackal_Rain", "BBJackal_Rooky")) {
       track <- crop_range_res(track)
     }
     
@@ -87,9 +90,16 @@ mod_to_tracks <- function(track) {
     if (id%in%c("B21")) {
       track <- crop_range_res(track)
     }
+    if (id=="B42") {
+      track <- track %>%
+        slice(-c(53, 179)) #edits for speed calc
+    }
   }
   
   if (updatedstudy=="Frair") {
+    if (id=="Gray1") {
+      track <- track %>% slice(-c(210)) #edits for speed
+    }
     if (id=="M5") {
       track <- track %>%
         filter(timestamp > ymd_hms("2006-01-01 18:28:59")) %>%
@@ -177,9 +187,15 @@ mod_to_tracks <- function(track) {
     }
   }
   
+  if (updatedstudy=="Lantham") {
+    if (id=="3") {
+      track <- track %>%
+        filter(timestamp<=ymd_hms("2006-11-15 01:01:47")) #time portion of resident partition
+    }
+  }
   
   if (updatedstudy=="Morato") {
-    if (id%in%c("Panthera_11", "Panthera_114", "Panthera_13", "Panthera_27","Panthera_34", "Panthera_36",
+    if (id%in%c("Panthera_11", "Panthera_114", "Panthera_13", "Panthera_27","Panthera_34", 
                 "Panthera_44")) {
       track <- crop_range_res(track)
     }
@@ -194,14 +210,15 @@ mod_to_tracks <- function(track) {
         filter(timestamp<=ymd_hms("2009-11-18 04:00:00"))
     }
     
-    if (id=="Panthera_43"){
-      track <- track %>%
-        filter(timestamp<=ymd_hms("2013-02-28 11:00:00"))
-    }
-    
     if (id=="Panthera_36"){
       track <- track %>%
-        filter(timestamp<=ymd_hms("2000-10-18 15:50:00"))
+        filter(timestamp<=ymd_hms("2000-10-18 15:50:00")) %>%
+        crop_range_res()
+    }
+    
+    if (id=="Panthera_5"){
+      track <- track %>%
+        filter(timestamp<=ymd_hms("2009-08-29 02:09:00")) #time portion of resident partition
     }
     
   }
@@ -264,16 +281,7 @@ mod_to_tracks <- function(track) {
   
   if (updatedstudy=="Patterson.B") {
     
-    if (id%in%c("W97143","W97155","W97177","W97185","W97188","W97189","W97311","W97359",
-                "H01", "T21", "W215", "W1605")) {
-      track <- crop_range_res(track)
-    }
-    
-    if(id=="T50") { 
-      track <- track %>%
-        filter(location.lat > NA) #coords withheld
-    }
-    
+    #skip duplicated individuals
     if (track$individual.taxon.canonical.name[[1]]=="Canis lupus x lycaon") {
       if (id %in% c("W97104","W97107","W97110","W97141","W97142","W97147",
                     "W97162","W97303","W97305","W97306","W97356","W97362")) {
@@ -286,6 +294,36 @@ mod_to_tracks <- function(track) {
       }
     }
     
+    if (id%in%c("W97143","W97155","W97177","W97185","W97189","W97311","W97359",
+                "H01", "T21", "W215", "W1605")) {
+      track <- crop_range_res(track)
+    }
+    
+    if(id=="W97188") {
+      track <- track %>% crop_range_res() %>% slice(-c(103)) #edits to speed
+    }
+    
+    if(id=="W97363") {
+      track <- track %>% slice(-c(70, 2421, 3211)) #edits to speed
+    }
+    
+    if(id=="W97381") {
+      track <- track %>% slice(-c(2493)) #edits to get rid of unrealistic speed calculations
+    }
+    
+    if(id=="T50") { 
+      track <- track %>%
+        filter(location.lat > NA) #coords withheld
+    }
+    
+    
+  }
+  
+  if (updatedstudy=="Patterson.BD") {
+    if (id=="Diana") {
+      track <- track %>% 
+        slice(-c(66,69,70,72)) #edits to speed
+    }
   }
   
   if (updatedstudy=="Prugh") {
@@ -430,6 +468,14 @@ mod_to_tracks <- function(track) {
   if (updatedstudy=="Wilmers") {
     if (id%in%c("Astrid","Charlotte","Hedley","19F","35M","43F","54M","66M","95F","Chunga")) {
       track <- crop_range_res(track)
+    }
+    if (id=="Merimela") {
+      track <- track %>%
+        filter(timestamp>=ymd_hms("2015-01-28 02:30:00")) #time portion of resident partition
+    }
+    if (id=="56M") {
+      track <- track %>%
+        filter(timestamp>=ymd_hms("2015-09-01 22:00:42")) #time portion of resident partition
     }
   }
   
