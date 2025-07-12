@@ -735,7 +735,7 @@ crop_range_res <- function(track) {
   
 }
 
-get_stats <- function(track, nametag) { #nametag is just a way to differentiate split for mean individuals (a vs b)
+get_stats <- function(track, resamp, nametag) { #nametag is just a way to differentiate split tracks
   
   id <- unique(track$"individual.local.identifier")[[1]]
   species <- unique(track$"individual.taxon.canonical.name")[[1]]
@@ -749,15 +749,18 @@ get_stats <- function(track, nametag) { #nametag is just a way to differentiate 
   minsampling <- get_minsampling(track)/60 #convert to mins
   mod_name <- summary(BEST_FIT)$name[[1]]
   ess <- summary(BEST_FIT)$DOF["area"][[1]]
+  n_fixes <- length(track$timestamp)
+  
+  print(paste("ok",id, species, study, updatedstudy))
   
   #akde and hr area (debias and weights off)
   UD <- akde(track, BEST_FIT, debias=FALSE, weights=FALSE)
-
+  
   #general summary info (hr area, tau p, v and sigma)
   area_model <- summary(BEST_FIT, units=F)$CI[1,]
   area_ud <- summary(UD, units=F)$CI[1,]
   
-  if ((mod_name == "OU anisotropic") || (mod_name == "OU")
+  if ((mod_name == "OU anisotropic") || (mod_name == "OU") 
       || (mod_name == "OU anisotropic error") || (mod_name == "OU error")) {
     
     tau_p <- summary(BEST_FIT, units=F)$CI[2,]
@@ -768,7 +771,7 @@ get_stats <- function(track, nametag) { #nametag is just a way to differentiate 
     sigma_p <- NA
     b_l_s <- NA
     
-    #speed is inf if not ouf/ouf anisotropic so manually insert na
+    #speed is inf if not ouf/ouf anisotropic so manually insert na and ask Chris
     speed <- c(NA,NA,NA)
     dists <- c(NA,NA,NA)
   }
@@ -788,7 +791,7 @@ get_stats <- function(track, nametag) { #nametag is just a way to differentiate 
     
     #dist/day sloppy version
     #mod from https://doi.org/10.1186/s40462-019-0177-1 s2
-    track$day <-cut(track$timestamp, breaks="day")
+    track$day <-cut(track$timestamp, breaks="day") 
     days <- unique(track$day)
     
     #An empty list to fill with the results
@@ -812,11 +815,11 @@ get_stats <- function(track, nametag) { #nametag is just a way to differentiate 
     
     dists <- as.data.frame(do.call(rbind , dists)) %>%
       colMeans #get mean dist travelled per day 
-    
   }
-
+  
   else {
-
+    
+    print("ok")
     #IID/IID error 
     
     #tau_p not in IID
@@ -831,49 +834,53 @@ get_stats <- function(track, nametag) { #nametag is just a way to differentiate 
     #speed is inf if not ouf/ouf anisotropic so manually insert na and ask Chris
     speed <- c(NA,NA,NA)
     dists <- c(NA,NA,NA)
-
+    
   }
   
   #calculate ridge density!
   RIDGE <- ctmm:::ridges.UD(UD)
+  
+  ridge_indicator <- RIDGE$Indicator #original ridge matrix
+  avg_width <- RIDGE$Ave.Width #avg width used to calculate percent ridge use probability
+  
+  bandwidth <- sqrt(eigen(UD$H)$values) #chris is suspicious that avg width is related to bandwidth 
+  
   SP.UD <- SpatialPolygonsDataFrame.UD(UD)
   threshold <- 0.5 #we tried out different thresholds and they did not influence the clade difference estimate
   
   #get UDs at diff thresholds
   UD_High <- SpatialPolygonsDataFrame.UD(UD)
-  UD_High@polygons[[1]] <- NULL
-  UD_High@polygons[[1]] <- NULL
-  UD_High@plotOrder <- c(1L)
-  UD_High <- rgeos::gMakeValid(UD_High)
-  #UD_High <- sf::st_make_valid(UD_High)
-
+  UD_High <- tryCatch( { sf::st_as_sf(UD_High) },
+                       error=function(e) { UD_High <- 0 })
+  UD_High <- tryCatch( { sf::st_make_valid(UD_High$geometry[3]) },
+                       error=function(e) { UD_High <- 0 })
+  
   UD_Mean <- SpatialPolygonsDataFrame.UD(UD)
-  UD_Mean@polygons[[3]] <- NULL
-  UD_Mean@polygons[[1]] <- NULL
-  UD_Mean@plotOrder <- c(1L)
-  UD_Mean <- rgeos::gMakeValid(UD_Mean)
-  #UD_Mean <- sf::st_make_valid(UD_Mean)
-
+  UD_Mean <- tryCatch( { sf::st_as_sf(UD_Mean) },
+                       error=function(e) { UD_Mean <- 0 })
+  UD_Mean <- tryCatch( { sf::st_make_valid(UD_Mean$geometry[2]) },
+                       error=function(e) { UD_Mean <- 0 })
+  
   UD_Low <- SpatialPolygonsDataFrame.UD(UD)
-  UD_Low@polygons[[3]] <- NULL
-  UD_Low@polygons[[2]] <- NULL
-  UD_Low@plotOrder <- c(1L)
-  UD_Low <- rgeos::gMakeValid(UD_Low)
-  #UD_Low <- sf::st_make_valid(UD_Low)
+  UD_Low <- tryCatch( { sf::st_as_sf(UD_Low) },
+                      error=function(e) { UD_Low <- 0 })
+  UD_Low <- tryCatch( { sf::st_make_valid(UD_Low$geometry[1]) },
+                      error=function(e) { UD_Low <- 0 })
   
   #get ridges as contourLines
-  ridges <- grDevices::contourLines(UD$r$x, UD$r$y, RIDGE, level=threshold)
+  ridges <- grDevices::contourLines(UD$r$x, UD$r$y, ridge_indicator, level=threshold)
   lines <- list()
   for (i in seq_along(ridges)) {
     lines[[i]] <- Lines(list(Line(cbind(ridges[[i]]$x, ridges[[i]]$y))), 
                         ID = as.character(i))
   }
-
+  
   #convert to spatiallines
   all_lines <- SpatialLines(lines, proj = SP.UD@proj4string)
+  all_lines <- sf::st_as_sf(all_lines)
   
   #get all ridge lengths and densities
-  ridges_high <- tryCatch({ raster::intersect(all_lines, UD_High) },
+  ridges_high <- tryCatch({sf::st_intersection(all_lines, UD_High) },
                           error= function(e) { ridges_high <- 0 })
   #convert to sf bc rgeos is being retired
   ridges_high <- tryCatch( { sf::st_as_sf(ridges_high) },
@@ -881,27 +888,66 @@ get_stats <- function(track, nametag) { #nametag is just a way to differentiate 
   length_h <-  tryCatch({sum(sf::st_length(ridges_high)) },
                         error= function(e) { length_h <- 0 })
   dens_h <- length_h^2/area_ud[[3]]
-
-  ridges_mean <- tryCatch({raster::intersect(all_lines, UD_Mean) },
-                          error= function(e) { ridges_mean <- 0 })
+  
+  ridges_mean <- tryCatch({sf::st_intersection(all_lines, UD_Mean) },
+                          error= function(e) { ridges_high <- 0 })
   #convert to sf bc rgeos is being retired
-  ridges_mean <- tryCatch({ sf::st_as_sf(ridges_mean) },
-                          error= function(e) { ridges_mean <- 0 })
+  ridges_mean <- tryCatch( { sf::st_as_sf(ridges_mean) },
+                           error=function(e) { ridges_mean <- 0 })
   length_m <-  tryCatch({sum(sf::st_length(ridges_mean)) },
                         error= function(e) { length_m <- 0 })
   dens_m <- length_m^2/area_ud[[2]]
-
-  ridges_low <- tryCatch({raster::intersect(all_lines, UD_Low) },
+  
+  ridges_low <- tryCatch({sf::st_intersection(all_lines, UD_Low) },
                          error= function(e) { ridges_low <- 0 })
   #convert to sf bc rgeos is being retired
-  ridges_low <- tryCatch({ sf::st_as_sf(ridges_low) },
+  ridges_low <- tryCatch({sf::st_as_sf(ridges_low) },
                          error= function(e) { ridges_low <- 0 })
   length_l <-  tryCatch({sum(sf::st_length(ridges_low)) },
                         error= function(e) { length_l <- 0 })
   dens_l <- length_l^2/area_ud[[1]]
   
-
-  returned <- c(paste(id, nametag, sep=""),
+  hr_width <- sqrt(BEST_FIT$sigma@par['minor']) #hr width for buffer
+  
+  #creates buffer around ridges and calculates how much the individual actually uses those tracks
+  
+  buffer <- sf::st_buffer(ridges_mean, dist=avg_width) #buffer using avg width
+  buffer_reduced10 <- sf::st_buffer(ridges_mean, dist=avg_width/10) #buffer using avg width
+  buffer_reduced100 <- sf::st_buffer(ridges_mean, dist=avg_width/100) #buffer using avg width
+  
+  buffer_frac5 <- sf::st_buffer(ridges_mean, dist=(hr_width*0.05)) #buffer using fraction of hr width
+  buffer_frac10 <- sf::st_buffer(ridges_mean, dist=(hr_width*0.1)) #buffer using fraction of hr width
+  buffer_frac25 <- sf::st_buffer(ridges_mean, dist=(hr_width*0.25)) #buffer using fraction of hr width
+  
+  buffer_fixed10 <- sf::st_buffer(ridges_mean, dist=10) #buffer using fixed width
+  buffer_fixed50 <- sf::st_buffer(ridges_mean, dist=50) #buffer using fixed width
+  buffer_fixed100 <- sf::st_buffer(ridges_mean, dist=100) #buffer using fixed width
+  buffer_fixed200 <- sf::st_buffer(ridges_mean, dist=200) #buffer using fixed width
+  
+  pmf <- ctmm::raster(UD, DF="PMF") #export probability mass function
+  pmf_mask <- raster::mask(pmf, buffer)
+  pmf_mask_frac5 <- raster::mask(pmf, buffer_frac5)
+  pmf_mask_frac10 <- raster::mask(pmf, buffer_frac10)
+  pmf_mask_frac25 <- raster::mask(pmf, buffer_frac25)
+  pmf_mask_reduced10 <- raster::mask(pmf, buffer_reduced10)
+  pmf_mask_reduced100 <- raster::mask(pmf, buffer_reduced100)
+  pmf_mask_fixed10 <- raster::mask(pmf, buffer_fixed10)
+  pmf_mask_fixed50 <- raster::mask(pmf, buffer_fixed50)
+  pmf_mask_fixed100 <- raster::mask(pmf, buffer_fixed100)
+  pmf_mask_fixed200 <- raster::mask(pmf, buffer_fixed200)
+  
+  ridge_probability <- raster::cellStats(pmf_mask, "sum")
+  ridge_prob_frac5 <- raster::cellStats(pmf_mask_frac5, "sum")
+  ridge_prob_frac10 <- raster::cellStats(pmf_mask_frac10, "sum")
+  ridge_prob_frac25 <- raster::cellStats(pmf_mask_frac25, "sum")
+  ridge_prob_reduced10 <- raster::cellStats(pmf_mask_reduced10, "sum")
+  ridge_prob_reduced100 <- raster::cellStats(pmf_mask_reduced100, "sum")
+  ridge_prob_fixed10 <- raster::cellStats(pmf_mask_fixed10, "sum")
+  ridge_prob_fixed50 <- raster::cellStats(pmf_mask_fixed50, "sum")
+  ridge_prob_fixed100 <- raster::cellStats(pmf_mask_fixed100, "sum")
+  ridge_prob_fixed200 <- raster::cellStats(pmf_mask_fixed200, "sum")
+  
+  returned <- c(paste(id, nametag, sep=""), 
                 species, study, updatedstudy, mod_name, n_fixes,
                 dur[1][[1]], dur[2][[1]], resamp, minsampling, ess,
                 speed[[1]], speed[[2]], speed[[3]],
@@ -912,13 +958,15 @@ get_stats <- function(track, nametag) { #nametag is just a way to differentiate 
                 tau_v[[1]], tau_v[[2]], tau_v[[3]],
                 sigma_p, b_l_s,
                 length_l, length_m, length_h,
-                dens_l, dens_m, dens_h)
+                dens_l, dens_m, dens_h, avg_width, bandwidth[[1]], bandwidth[[2]], 
+                ridge_probability, ridge_prob_frac5, ridge_prob_frac10, ridge_prob_frac25,
+                ridge_prob_reduced10, ridge_prob_reduced100,
+                ridge_prob_fixed10, ridge_prob_fixed50, ridge_prob_fixed100, ridge_prob_fixed200)
   
   print(returned)
   return(returned)
   
 }
-
 # actual loop to run ###################################################################
 
     print(file)
