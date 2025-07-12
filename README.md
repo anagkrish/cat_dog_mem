@@ -9,7 +9,12 @@ Diverse factors, including environmental features and cognitive processes, can d
 This repo contains the code and additional data required to reproduce the results in this manuscript, as well as high resolution versions of all the figures. More detail on each file is provided below:
 
 ## R Files
+
+# Start here
+- calculate_ridge.R: Simple workflow to calculate ridges on an individual movement track using CTMM.
 - pglmm_model_fit.R: Simple workflow to fit the PGLMM used in this manuscript. Includes information on how to access the phylogeny used in this model.
+
+# More detail
 - calculate_fits.R: Part 1 of ridge density calculations. Used to fit and save CTMM models for each individual. 
 - getridgefromfits.R. Part 2 of ridge density calculations. Uses fit from calculate_fits.R to get ridge density for each individual.
 - ranef.rma.mv.R: Hacked metafor function to return covariance matrix (by Dr. Chris Fleming)
