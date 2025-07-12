@@ -1,3 +1,6 @@
+#########################################
+# All supplemental figures
+
 library(tidyverse)
 library(ctmm)
 library(lubridate)
@@ -23,22 +26,27 @@ ridge <- read_csv("ridge.csv") %>%
   filter(`kept (y/n)` == "y") %>% #drop all dropped individuals
   mutate(pursuit = as.factor(pursuit),
          disruptfast = as.factor(disruptfast),
-         slowwalking = as.factor(slowwalking), 
-         #convert to factors bc they're read in as numerical
-         log_mass = log(`mass (g)`),
-         log_hr = log(`area_ud_est (m^2)`),
+         slowwalking = as.factor(slowwalking), #convert to factors bc they're read in as numerical
+         log_mass = log(mass),
+         log_hr = log(area_ud_est),
          inv_ess = 1/ess,
          log_roughness = log(mean_roughness),
          log_hfi = log(mean_hfi),
          log_dhi_gpp = log(mean_dhi_gpp),
          point = as.factor(1:length(id)),
-         log_ridge = log(`ridge_dens_est (1/m)`)) %>%
-  #standardize vars
+         log_ridge = log(ridge_dens_est),
+         log_ridge_length = log(ridge_length_est),
+         logit_ridge_prob = log(ridge_use_prob/(1-ridge_use_prob)),
+         logit_ridge_prob_reduced10 = log(ridge_prob_reduced10/(1-ridge_prob_reduced10)),
+         logit_ridge_prob_reduced100 = log(ridge_prob_reduced100/(1-ridge_prob_reduced100)),
+         logit_ridge_prob_fixed10 = log(ridge_prob_fixed10/(1-ridge_prob_fixed10)),
+         logit_ridge_prob_fixed50 = log(ridge_prob_fixed50/(1-ridge_prob_fixed50)),
+         logit_ridge_prob_fixed100 = log(ridge_prob_fixed10/(1-ridge_prob_fixed100))) %>%
   mutate(log_mass_st=mosaic::zscore(log_mass),
-         log_hr_st=mosaic::zscore(log_hr),
+         log_hr_st=mosaic::zscore(log_hr), 
          log_roughness_st=mosaic::zscore(log_roughness),
          seasonality_dhi_gpp_st=mosaic::zscore(seasonality_dhi_gpp),
-         speed_est_st=mosaic::zscore(`speed_est (m/s)`, na.rm=T),
+         speed_est_st=mosaic::zscore(speed_est, na.rm=T),
          mean_treecover=mean_treecover/100)
 
 #download tree from: https://github.com/n8upham/MamPhy_v1/blob/master/_DATA/MamPhy_fullPosterior_BDvr_Completed_5911sp_topoCons_NDexp_MCC_v2_target.tre
@@ -51,7 +59,8 @@ tree_all$tip.label <- sapply(tree_all$tip.label, function(x) str_extract(x, "[^_
 tree_all$tip.label <- replace(tree_all$tip.label, which(tree_all$tip.label=="Canis_mesomelas"), "Lupulella_mesomelas")
 tree_all$tip.label <- replace(tree_all$tip.label, which(tree_all$tip.label=="Pseudalopex_vetulus"), "Lycalopex_vetulus")
 
-###E1. Effective Sizes
+#########################################
+###S1. Effective Sizes
 #to get ess, run best fit model on each subset of data and then run below code:
 # subs = "shared landscape" #change to name of data subset
 # # effsizes <- data.frame(subset=NA, var=NA, low=NA, est=NA, high=NA, type=NA, color=NA) %>%
@@ -218,7 +227,8 @@ cowplot::plot_grid(dna + labs(subtitle="\nDNA Only Tree (N=1201, C=15, F=17)") +
                    vjust = 2)  +
   theme(panel.background = element_rect(fill="white"), text=element_text(size=35))
 
-###E4. Canidae Only/Felidae Only Effect Sizes (out of order bc it's easier to plot these together)
+#########################################
+###S4. Canidae Only/Felidae Only Effect Sizes (out of order bc it's easier to plot these together)
 
 cowplot::plot_grid(canidae + labs(subtitle="\nCanidae Only (N=624, C=16)") + theme(axis.title.x=element_blank()), 
                    felidae + labs(subtitle="\nFelidae Only (N=615, F=18)") 
@@ -231,7 +241,8 @@ cowplot::plot_grid(canidae + labs(subtitle="\nCanidae Only (N=624, C=16)") + the
                    vjust = 2)  +
   theme(text=element_text(size=25))
 
-###E2. Same Species Different Landscapes
+#########################################
+###S2. Same Species Different Landscapes
 speciesdifflandscape <- ridge %>% filter(sp%in%c("Canis latrans", "Canis lupus", "Vulpes vulpes", "Lynx rufus",
                                                  "Puma concolor", "Caracal caracal", "Lupulella mesomelas", "Felis silvestris",
                                                  "Lycaon pictus", "Lynx lynx", "Panthera leo"))
@@ -279,7 +290,7 @@ CANINE <- unique(speciesdifflandscape$phylo[CANINE])
 FELINE <- speciesdifflandscape$clade=="felidae"
 FELINE <- unique(speciesdifflandscape$phylo[FELINE])
 
-iCOV <- ctmm:::PDsolve(RCOV)
+iCOV <- ctmm::pd.solve(RCOV)
 dW.dl <- iCOV %*% cbind( names(REST) %in% CANINE , names(REST) %in% FELINE )
 M <- rbind( colSums( dW.dl[CANINE,,drop=FALSE] ) , colSums( dW.dl[FELINE,,drop=FALSE] ) )
 lambda <- c( solve(M) %*% c(1,-1) )
@@ -452,7 +463,7 @@ species_ests_all_toplot <- species_ests_all %>%
   mutate(clade=ifelse(sp=="Lupulella mesomelas", "canidae", clade)) %>%
   unite("breaks", sp, updatedstudy, sep=" ", remove=F)
 
-#make figure E2
+#make figure S2
 speciesdifflandscape %>%
   mutate(sp=ifelse(sp=="Canis mesomelas", "Lupulella mesomelas", sp),
          clade=paste(clade, "full", sep=" ")) %>%
@@ -519,7 +530,8 @@ speciesdifflandscape %>%
          color = guide_legend(order=2, override.aes = list(shape = 5)))
 
 
-###E3. Species level Predicted Means (full dataset, best model)
+#########################################
+###S3. Species level Predicted Means (full dataset, best model)
 
 #aggregate predictors (will lead to some inaccuracy bc some species are across mult landscape but its the best we can do)
 sp_level_ests <- aggregate(cbind(log_mass_st, log_roughness_st, mean_treecover, 
@@ -599,4 +611,504 @@ ggplot() +
   guides(fill = guide_legend(order = 1, override.aes = list(alpha = 1)),
          color = guide_legend(order=1),
          shape = guide_legend(order = 2))
+
+#########################################
+###S5. Ridge Probability Relative Difference
+# start with mod_comps file containing summary statistics and variable coefficients
+# instructions for calculating these in pglmm_fit.R
+ridgedensreldiffs <- read_csv("mod_comps.csv") %>%
+  dplyr::select(c("n", "response_var", "terms",
+                  "aic", "bic", "clade_reldiff_low", "clade_reldiff_est", "clade_reldiff_high")) %>%
+  filter(response_var%in%c("logit_ridge_prob_fixed10","logit_ridge_prob_fixed50",
+                           "logit_ridge_prob_fixed100","logit_ridge_prob_fixed200" )) %>%
+  mutate("dataset"=ifelse(n==1239, "Full", "Shared Landscape")) %>%
+  relocate(dataset, .before=c("n"))
+
+probreldiffs <- ridgedensreldiffs %>%
+  mutate(response_var = factor(response_var, levels = c("logit_ridge_prob_fixed10", 
+                                                        "logit_ridge_prob_fixed50", 
+                                                        "logit_ridge_prob_fixed100",
+                                                        "logit_ridge_prob_fixed200"))) %>%
+  mutate_at(c("clade_reldiff_low", "clade_reldiff_est", "clade_reldiff_high"), 
+            function (x) {return(x-1)}) %>%
+  ggplot(mapping=aes(x=response_var, y=clade_reldiff_est, shape=dataset)) +
+  geom_point(size = 2.5, position=position_dodge(width=0.5)) +
+  geom_errorbar(mapping=aes(ymin=clade_reldiff_low, ymax=clade_reldiff_high),
+                width = 0.5, position=position_dodge(width=0.5)) +
+  theme_bw() +
+  labs(x=NULL, y="Ridge-associated Probability Percent Difference \n(Canid / Felid)", 
+       shape=NULL) +
+  scale_x_discrete(breaks = c("logit_ridge_prob_fixed10", "logit_ridge_prob_fixed50",
+                              "logit_ridge_prob_fixed100", "logit_ridge_prob_fixed200"), 
+                   labels = c("10m\nFixed Buffer", "50m\nFixed Buffer",
+                              "100m\nFixed Buffer", "200m\nFixed Buffer")) +
+  geom_hline(mapping=aes(yintercept = 0.0), linetype="dashed") +
+  geom_text(aes(label = c("***", "***", "", "",
+                          "***", "***","***", "***"),
+                y = rep(c(0.43), times = 8)), size=3,
+            position=position_dodge(width=0.65)) +
+  scale_y_continuous(limits=c(-0.1, 0.44), breaks = c(-0.1, 0, 0.1, 0.2, 0.3, 0.4),
+                     labels = c("-10%","0%","10%","20%","30%","40%")) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_blank(), axis.line = element_line(colour = "black"),
+        legend.position = c(0.15, 0.12))
+
+#########################################
+###S6. Ridge Probability Species-level Estimates
+
+#load dataset and phylogeny from top of document
+SPECIES <- unique(ridge$phylo)
+PHS <- rownames(ph_corr)
+IN <- PHS[PHS %in% SPECIES]
+ph_corr <- ph_corr[IN,IN] #get full corrmat and then trim (not totally sure if this is relevant)
+
+#random effects for each species (phylo) and each individual (point)
+random <- list(~ 1|phylo, ~ 1|point) # these will be the only fitted variances in metafor, the latter is a normal regression error that is not included by default
+R <- list(phylo=ph_corr)
+
+mods <- ~ log_mass_st + pursuit + disruptfast + slowwalking + log_hr_st + inv_ess + log_roughness_st + mean_treecover + mean_hfi + seasonality_dhi_gpp_st
+
+FIT <- metafor::rma.mv(logit_ridge_prob_fixed50,V=0,mods=mods,random=random,R=R,data=ridge)
+
+EFF <- ranef2(FIT)$phylo #hacked metaphor function
+REST <- EFF$est # random effects
+RCOV <- EFF$COV # error covariance
+
+#set up spreadsheet to calculate species level estimates
+sp_level_ests <- aggregate(cbind(log_mass_st, log_roughness_st, mean_treecover, 
+                                 mean_hfi, log_hr_st, inv_ess, 
+                                 seasonality_dhi_gpp_st, ridge_prob_fixed10) ~ sp,
+                           data=ridge,
+                           FUN = mean) %>%
+  left_join(dplyr::select(ridge, c("sp", "clade", "pursuit", "disruptfast", "slowwalking", "hunting_movement")), 
+            by=c("sp"="sp")) %>%
+  distinct(sp, .keep_all=T)
+
+for (i in seq_along(sp_level_ests$sp)) {
+  
+  species <- sp_level_ests$sp[i]
+  
+  SLOPE.EST <- REST[[str_replace(species, " ", "_")]]
+  SLOPE.VAR <- RCOV[str_replace(species, " ", "_"), str_replace(species, " ", "_")]
+  
+  #get avg vars for sp
+  log_mass_st <- (sp_level_ests %>% filter(sp==species))$log_mass_st
+  log_roughness_st <- (sp_level_ests %>% filter(sp==species))$log_roughness_st
+  mean_treecover <- (sp_level_ests %>% filter(sp==species))$mean_treecover
+  mean_hfi <- (sp_level_ests %>% filter(sp==species))$mean_hfi
+  seasonality_dhi_gpp_st <- (sp_level_ests %>% filter(sp==species))$seasonality_dhi_gpp_st
+  log_hr_st <- (sp_level_ests %>% filter(sp==species))$log_hr_st
+  inv_ess <- (sp_level_ests %>% filter(sp==species))$inv_ess
+  #indicator vars for movement (need to set vars manually >:())
+  pursuit <- ifelse((sp_level_ests %>% filter(sp==species))$pursuit==1, 1, 0)
+  disruptfast <- ifelse((sp_level_ests %>% filter(sp==species))$disruptfast==1, 1, 0)
+  slowwalking <- ifelse((sp_level_ests %>% filter(sp==species))$slowwalking==1, 1, 0)
+  
+  GRAD <- c(1, log_mass_st, pursuit, disruptfast, slowwalking,
+            log_hr_st, inv_ess, log_roughness_st, mean_treecover, mean_hfi, seasonality_dhi_gpp_st)
+  
+  EST <- GRAD %*% FIT$beta + SLOPE.EST
+  
+  #species var
+  VAR <- GRAD %*% FIT$vb %*% GRAD + SLOPE.VAR
+  SE <- sqrt(VAR)
+
+  inv.logit <- function(x) {
+    exp(x)/(1+exp(x))
+  }
+  
+  sp_level_ests$pred_ridge_low[i] <- inv.logit(ctmm:::norm.ci(EST[,1], SE[,1]))[1] #logit back-trans
+  sp_level_ests$pred_ridge[i] <- inv.logit(ctmm:::norm.ci(EST[,1], SE[,1]))[2] #logit back-trans
+  sp_level_ests$pred_ridge_high[i] <- inv.logit(ctmm:::norm.ci(EST[,1], SE[,1]))[3] #logit back-trans
+  
+}
+
+sp_linerange <- aggregate(cbind(ridge_prob_fixed50) ~ sp,
+                          data=ridge,
+                          FUN = function(x) c(min = min(x), max = max(x)))  
+
+#Violin plot with actual vs predicted values
+ggplot() +
+  geom_errorbar(data = sp_linerange, 
+                mapping=aes(x=sp, #ymin=ridge_dens_est[,"min"],ymax=ridge_dens_est[,"max"]), 
+                            ymin=ridge_prob_fixed50[,"min"],ymax=ridge_prob_fixed50[,"max"]), 
+                alpha=0.5, width = 0.8) +
+  geom_point(data = sp_level_ests, mapping=aes(x=sp, y=pred_ridge, color=clade, shape=hunting_movement), size=5) +
+  scale_fill_manual(name="Clade", values=c("canidae"="blue","felidae"="red"), labels=c("Canidae", "Felidae")) +
+  scale_color_manual(name="Clade", values=c("canidae"="blue","felidae"="red"), labels=c("Canidae", "Felidae")) +
+  scale_y_continuous(limits=c(0, 1), breaks = c(0,0, 0.2, 0.4, 0.6, 0.8, 1.0)) +
+  scale_shape_manual(name="Hunting Strategy",
+                     values=c("Disruptive Fast hunting"=15,
+                              "Mixed Strategies"=16,
+                              "Pursuit"=17,
+                              "Slow walking"=18),
+                     labels=c("Disruptive Fast hunting"="Disruptive Fast Hunting",
+                              "Mixed Strategies"="Mixed Strategies",
+                              "Pursuit"="Pursuit",
+                              "Slow walking"="Slow Walking")) +  
+  labs(x="Species", y="Ridge-associated Probability", caption = "Ridge buffer fixed at 50m") +
+  theme_bw() +
+  theme(text = element_text(size=12), axis.text.x = element_text(angle=90)) +
+  guides(fill = guide_legend(order = 1, override.aes = list(alpha = 1)),
+         color = guide_legend(order=1),
+         shape = guide_legend(order = 2))
+
+#########################################
+###S7. Effect Sizes for Different Subsets of Ridge Probability
+#calculate effect sizes as in S1, but for ridge probability
+
+effsizes <- "load/file/here" %>% 
+  mutate(type=ifelse(type=="Model Coefficient", "Model Coefficients and Effects", type),
+         color=ifelse(color=="Model Coefficient", "Model Coefficients and Effects", color),
+         name=var) %>%
+  mutate(name=ifelse(var=="log_mass_st", "Mass (g)\\*",
+                     ifelse(var=="pursuit1", "Hunting Movement<br>(Pursuit)",
+                            ifelse(var=="disruptfast1", "Hunting Movement<br>(Disruptive Fast)",
+                                   ifelse(var=="slowwalking1", "Hunting Movement<br>(Slow Walking)",
+                                          ifelse(var=="log_hr_st", "Home Range<br>Area (m²)\\*",
+                                                 ifelse(var=="log_roughness_st", "Terrain<br>Roughness (m)\\*",
+                                                        ifelse(var=="mean_hfi", "Human Footprint Index (%)",
+                                                               ifelse(var=="mean_treecover", "Tree Cover (%)",
+                                                                      ifelse(var=="seasonality_dhi_gpp_st", 
+                                                                             "Dynamic Habitat Index<br>(Gross Primary<br>Productivity: kg C/m²)\\*",
+                                                                             # ifelse(var=="seasonality_dhi_gpp_st", 
+                                                                             #        "Dynamic Habitat Index<br>(Gross Primary Productivity)<br>(kg C/m²))\\*",
+                                                                             ifelse(var=="speed_est_st", "Speed<br>(m/s)", name)))))))))))
+
+year <- effsizes %>%
+  filter(subset%in%c("selected/subset/here")) %>%
+  #filter(var != "Phylogenetic<br>(Clade)") %>% #for canidae and felidae
+  mutate(subset = factor(subset, levels = c("full", "dna only", "speed", 
+                                            "clean", "year", "shared landscape"),
+                         labels = c("Full", "DNA Only Tree", "Speed Included", 
+                                    "No Preprocessing", "Year or Longer", "Shared Landscapes"))) %>%
+  #var = fct_reorder(var, rev(unique(var)))) %>% #flip list
+  mutate(textcol = ifelse(var %in% c("Phylogenetic", "Individual", "Phylogenetic<br>(Clade)"), "**", 
+                          #phylo/rand effects
+                          ifelse(var %in% c("log_mass_st", "log_hr_st", "log_roughness_st"), "***",
+                                 #log transformed vars
+                                 ifelse(var %in% c("pursuit1", "disruptfast1", "slowwalking1"), "_", 
+                                        #indicator vars
+                                        ifelse(var %in% c("mean_hfi", "mean_treecover", "seasonality_dhi_gpp_st", "speed_est_st"), "", NA))))) %>%
+  #untransformed vars :3                  #no transformation (not including standardization)
+  mutate(label = paste(textcol, name, textcol, sep = ""),
+         label = fct_reorder(label, rev(sort(as.character(label))))) %>%
+  mutate_at(c("low","est","high"), function(x){parse_number(x)}) %>%
+  ggplot(mapping=aes(x=est, y = label, color = color)) +
+  #geom_blank(data = blank_data, aes(x = est, y = var)) + #for shared landscapes
+  geom_point() +
+  geom_errorbar(mapping=aes(xmin=low, xmax=high)) +
+  geom_vline(mapping=aes(xintercept=0), linetype="dashed") +
+  labs(x="Effect Size (Percent Increase in Ridge Density)", y = NULL, color = NULL) +
+  #labs(x=" ", y = NULL, color = NULL) +
+  scale_x_continuous(labels = scales::percent) +
+  scale_color_manual(values=c("Model Coefficients and Effects"="#5ac85a","Biological Variance"="#6d2f9c")) +
+  theme_bw() +
+  theme(legend.direction = "horizontal",
+        legend.position = "none",
+        text=element_text(size=15),
+        axis.text.y=element_markdown()) +
+  facet_grid(type~., scales="free", space="free") +
+  ggforce::facet_col(type~., scales = 'free', space = 'free')
+
+#########################################
+###S8. Tests for Linearity
+
+FIT <- "model/fit" #fit is the result of the pglmm
+RESID <- residuals.rma(FIT) 
+
+#predicted vs residuaL
+cbind(predict.rma(FIT)$pred, residuals.rma(FIT)) %>%
+  as.data.frame() %>%
+  ggplot(mapping=aes(x=V1, y=V2)) +
+  geom_point() +
+  geom_abline(mapping=aes(slope=0, intercept=0), color="red") +
+  labs(x="Predicted", y="Residual")
+
+#QQnorm
+qqnorm(RESID)
+
+#distribution of residuals
+
+h <- hist(RESID, freq=F, breaks="Scott")
+plot(h, freq=F, main="Histogram of Residuals")
+curve(dnorm(x, mean=0, sd=1), col="red", add=T, lwd=2)
+
+#even distribution of residuals?
+RESID %>%
+  as.data.frame() %>%
+  rowid_to_column("num") %>%
+  ggplot(mapping=aes(x=num, y=`.`)) +
+  geom_point() +
+  geom_abline(mapping=aes(slope=0, intercept=0), color="red") +
+  labs(x="Index", y = "Residuals")
+
+#multicollinearity
+ridge %>%
+  dplyr::select(c(log_mass_st, log_hr_st, inv_ess, 
+                  log_roughness_st, mean_treecover, mean_hfi, seasonality_dhi_gpp_st)) %>%
+  cor() %>%
+  as.data.frame() %>%
+  mutate_if(is.numeric, round, digits=4)
+
+#########################################
+#S9/ 10.  Comparative availability of GPS fixes across year by clade and species
+data_list <- "movement/data/here" %>%
+  group_split(id) #split into lists for each individual
+
+get_duration <- function(individual) { #individual name
+  
+  duration <- as.duration(interval(as.Date(individual$timestamp[1], #change to 2 for inds where first val is 00:00:00
+                                           format = "%Y-%m-%d %H:%M:%S"),
+                                   as.Date((tail(individual,1)$timestamp),
+                                           #change to tail(individual,2)$timestamp[1] for
+                                           #inds where LAST val is 00:00:00
+                                           format='%Y-%m-%d %H:%M:%S')))@.Data/604800
+  
+  #gets duration in secs and converts to weeks (604800 seconds in a WEEK bitch)
+  
+  #duration <- parse_number(duration)
+  year <- as.Date(individual$timestamp[1], format = "%Y-%m-%d %H:%M:%S")
+  
+  return(list(duration,year))
+}
+
+#from https://stackoverflow.com/questions/7176870/create-a-vector-of-all-dates-in-a-given-year
+get_days <- function(year){
+  seq(as.Date(paste(year, "-01-01", sep="")), as.Date(paste(year, "-12-31", sep="")), by="+1 day")
+}
+
+names <- c()
+days <- list(get_days(year("2000-01-01")))
+
+for (i in seq_along(data_list)) {
+  
+  ind <- data_list[[i]] %>%
+    mod_to_tracks() #function from file getridgefromfits.R to remove unused fixes
+  
+  dur <- get_duration(ind)
+  
+  #split up individuals with a duration >1 year to count their years seperately
+  if (dur[[1]] > 52) {
+    
+    ind <- ind %>% 
+      mutate(year=year(timestamp)) %>%
+      unite(c(id, year), col="id", remove=F)
+    
+    ind_years <- group_split(ind, by=ind$year)
+    
+    for (j in seq_along(ind_years)) {
+      
+      ind_days <- ind_years[[j]] %>%
+        #mutate to random year because year doesn't matter
+        mutate(timestamp = gsub("^[^-]*", "2000", timestamp)) %>%
+        mutate(timestamp = as_date(timestamp)) %>%
+        distinct(timestamp, .keep_all=T) %>%
+        dplyr::select(timestamp)
+      
+      if(length(ind_days$timestamp)==1) {next}
+      
+      names <- c(names, unique(ind_years[[j]]$id))
+      days <- c(days, list(ind_days$timestamp))
+      
+    }
+    
+  } else {
+    
+    ind_days <- ind %>%
+      #mutate to random year because year doesn't matter, just number of years
+      mutate(timestamp = gsub("^[^-]*", "2000", timestamp)) %>%
+      mutate(timestamp = as_date(timestamp)) %>%
+      distinct(timestamp, .keep_all=T) %>%
+      dplyr::select(timestamp)
+    
+    if(length(ind_days$timestamp)==1) {next}
+    
+    names <- c(names, unique(ind$id))
+    days <- c(days, list(ind_days$timestamp))
+    
+  }
+  
+}
+
+names(days) <- c("year", names)
+
+#align all days 
+days_dat <- data.frame("name"=NA, "timeseries"=NA) %>%
+  drop_na()
+
+for (i in seq_along(days)) {
+  ind <- data.frame("name"=as.character(names(days)[[i]]), "timeseries"=days[[i]])
+  days_dat <- days_dat %>%
+    rbind(ind)
+}
+
+ridge <- ridge %>%
+  unite(c("id", "sp", "updatedstudy"), col="tojoin", sep="", remove=F) %>%
+  dplyr::select("tojoin", "id", "sp", "updatedstudy", "clade")
+
+#join with full dataframe for species data
+days_full <- days_dat %>%
+  separate(col=name, into = c("name","yeartracked"), sep="_(?=[0-9]{4}$)", remove=T) %>% #regex is to get last undersscore
+  left_join(ridge, by=c("name"="tojoin")) %>%
+  #edits to species names to allow joining to work
+  mutate(Species = replace(Species, Species == "Panthera pardus tulliana", "Panthera pardus"),
+         Species = replace(Species, Species == "Panthera tulliana", "Panthera pardus"),
+         Species = replace(Species, Species == "Panthera pardus orientalis", "Panthera pardus"),
+         Species = replace(Species, Species == "Panthera pardus ciscaucasica", "Panthera pardus"),
+         Species = replace(Species, Species == "Lycalopex vetulus", "Pseudalopex vetulus"),
+         Species = replace(Species, Species == "Panthera tigris tigris", "Panthera tigris"),
+         Species = replace(Species, Species == "Canis lupus dingo", "Canis dingo")) %>%
+  relocate(c(ID, Species, `Updated Study`, Study), .after=yeartracked) %>%
+  right_join(dplyr::select(ridge, c("id", "sp", "updatedstudy", "clade")),
+             by=c("ID"="id", "Species"="sp", "Updated Study"="updatedstudy"))
+
+#S9 GPS Fixes by time by Clade
+days_full %>%
+  group_by(clade, timeseries) %>%
+  mutate(dens = length(timeseries)) %>%
+  ungroup() %>%
+  group_by(clade) %>%
+  mutate(dens = dens/length(clade)) %>%
+  ggplot() +
+  stat_smooth(aes(x = timeseries, y = dens, color=clade), method = "gam", formula = y ~ s(x, bs = "cc")) +
+  coord_polar() +
+  scale_x_date(date_breaks="month", date_labels="%b") +
+  scale_color_manual(name="Clade", values=c("canidae"="blue","felidae"="red"), labels=c("Canidae", "Felidae")) +
+  scale_y_continuous(limits = c(0,0.003)) +
+  labs(x=NULL, y="Density of fixes on day of year") +
+  theme_bw() 
+
+#by GPS Fixes by time by most divergent species
+days_full %>%
+  mutate(clade=ifelse(clade=="canidae", "Canidae", "Felidae")) %>%
+  filter(Species %in% c("Cuon alpinus", "Cerdocyon thous", "Leopardus wiedii", "Canis lupus",
+                        "Puma concolor", "Leopardus pardalis", "Vulpes lagopus")) %>% #select most divergent species
+  group_by(Species, timeseries) %>%
+  mutate(dens = length(timeseries)) %>%
+  ungroup() %>%
+  group_by(Species) %>%
+  mutate(dens = dens/length(Species)) %>%
+  ggplot() +
+  stat_smooth(aes(x = timeseries, y = dens, color=Species), method = "gam", formula = y ~ s(x, bs = "cc")) +
+  coord_polar() +
+  scale_x_date(date_breaks="month", date_labels="%b") +
+  scale_fill_manual(values=as.vector(pals::polychrome(7))) +
+  labs(x=NULL, y="Density of fixes on day of year") +
+  theme_bw() +
+  facet_wrap(~clade,ncol=1) +
+  theme(text=element_text(size=14),legend.position="bottom")
+
+#########################################
+#S11. Probability Ridges for a Null Model
+
+#Specify an OUF model for simulation
+#One day in seconds
+ds <- 86400
+
+#Spatial variance in m^2
+sig <- 100000
+
+#Positional autocorrelation timescale
+tau_p <- ds
+
+#Velocity autocorrelation timescale
+tau_v <- 1350 #ds/2
+
+nd <- 64
+
+#The number of locations per day
+pd <- 8
+
+#Specify the number of replicates per sampling frequency
+nReps <- 100
+
+#Specify the movement model
+model <- ctmm(tau=c(tau_p,tau_v), 
+              isotropic=TRUE, 
+              sigma=sig, 
+              mu=c(0,0))
+
+#sampling times
+st <- 1:(nd*pd)*(ds/pd)
+
+#Simulate some data from the pre-defined model
+sim <- simulate(model,t=st)
+FIT <- ctmm.fit(sim, model)
+UD <- akde(sim, CTMM = FIT)
+
+ridges <- "calculate/ridges/here" #use given workflow to calculate ridges
+
+#plot null ouf
+ctmm::plot(sim, col="black", pch=19, cex=0.15, error=F,
+           UD=UD, col.UD="grey", cex.axis=2.5, cex.lab=2.5, units=F) #D: ridges w/ UD and GPS tracks as point
+plot(ridges, col="blue", lwd=3, add=T)
+
+#########################################
+#S12. Probability Ridges for a periodic OUF Gaussian stochastic model
+
+# OUF periodic parameters (held constant across all simulations except where tau_v was modified):
+# 
+# tau_p = 1 day
+# sigma^2 = 100,000 m^2
+# Period = 1 day
+# (centered on x= 0, y = 0, with the periodic behaviour centered on the edges of the HR (to create boundary patrolling behaviour))
+# mu = matrix(c(0, 0, 1000, 0, 1000, 0), nrow = 3) 
+# harmonic frequencies = c(1,0)
+
+#One day in seconds
+ds <- 86400
+
+#Spatial variance in m^2
+sig <- 100000
+
+#Positional autocorrelation timescale
+tau_p <- ds
+
+#Velocity autocorrelation timescale
+tau_v <- 1350 #ds/2
+
+nd <- 32 #c(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024)
+
+#The number of locations per day
+pd <- 8
+
+mu <- matrix(c(0, 0, 1000, 0, 1000, 0), nrow = 3)
+
+model <- ctmm(tau=c(tau_p, tau_v),
+              isotropic=TRUE,
+              sigma=sig,
+              mu=mu,
+              mean="periodic",
+              harmonic = c(1,0),
+              period=ds)
+
+#sampling times
+st <- 1:(nd*pd)*(ds/pd)
+
+#Simulate some data from the pre-defined model
+#seed: 321
+sim <- simulate(model,t=st, seed=321)
+FIT <- ctmm.fit(sim, model)
+UD <- akde(sim, CTMM = FIT)
+
+# panel a
+plot(sim, UD, col="black", col.UD="grey", pch=19, cex=0.4, error=F)
+ctmm::plot(sim, col="red", pch=19, cex=0.4, error=F,
+           ylim = c(2000,-2000), cex.axis=2.5, cex.lab=2.5)
+ctmm::plot(sim, col="red", type="line", cex=0.15, error=F,
+           cex.axis=2.5, cex.lab=2.5, add=T)
+symbols(0, 0, circles = 1, add = TRUE, fg="darkgreen", lwd="2", inches=F)
+symbols(0, 0, circles = 0.945, add = TRUE, lwd="2", fg="blue", inches=F)
+
+#add ridges
+ridges <- "calculate/ridges/here" #use given workflow to calculate ridges
+
+# panel b
+ctmm::plot(sim, col="black", pch=19, cex=0.25, error=F,
+           UD=UD, col.UD="grey", cex.axis=2.5, cex.lab=2.5,
+           units=T) #D: ridges w/ UD and GPS tracks as point
+symbols(0, 0, circles = 0.945, add = TRUE, lwd="2", fg="blue", inches=F)
+symbols(0, 0, circles = 1, add = TRUE, lwd="2", fg="darkgreen", inches=F)
+plot(ridges, col="red", lwd=2, add=T)
 
