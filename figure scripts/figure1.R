@@ -1,3 +1,5 @@
+#FIGURE 1 MAIN
+
 library(tidyverse)
 library(ctmm)
 library(lubridate)
@@ -12,6 +14,11 @@ library(snow)
 library(doSNOW)
 
 load("movement/data/here")
+
+#only read in individuals used for this figure
+ridge <- read_csv("ridge.csv") %>%
+  filter(`kept (y/n)` == "y") %>%
+  filter(updatedstudy %in% c("Vanak", "Young", "Sekercioglu"))
 
 #modified 7/12/25 to plot ridges w ks algorithm
 
@@ -88,9 +95,8 @@ inds <- (movementdata %>%
           #drouilly inds
          #filter(id2 %in% c("BBJackal_Forest", "BBJackal_Rain","Lucky"))
           #vanak inds
-         #filter(id2 %in% c("Fox 13 (Vasu)", "Fox 22 (Ding Dong)", "Fox 23 (300)", "Jackal 03 (Nanda)",
-         #"Jackal 07 (Marker)", "Jackal 09 (Roma)", "Jungle cat 09 (Dagdu)", "Jungle cat 10 (Bheegi Billi)",
-         #"Jungle cat 12 (Cavity)", "Jungle cat 13 (Kamini)"))
+         #filter(id2 %in% c("Jackal 03 (Nanda)", #"Jackal 07 (Marker)", "Jackal 09 (Roma)", 
+         # "Jungle cat 09 (Dagdu)", "Jungle cat 10 (Bheegi Billi)", "Jungle cat 12 (Cavity)", "Jungle cat 13 (Kamini)"))
           #young inds
          #filter(id2 %in% c("C023", "C026", "C028", "F108", "F157","F159", "F70"))
 )$id
@@ -122,7 +128,7 @@ mod_to_tracks <- function(track) {
     if (id=="Jackal 02 (Zoom)") {
       track <- crop_range_res(track)
     }
-    if(id%in%c("Fox 25 (Chandra)","Jungle cat 08 (Sultan)", "Jungle Cat 17 (Momo)")) {
+    if(id%in%c("Jungle cat 08 (Sultan)", "Jungle Cat 17 (Momo)")) {
       track <- track %>%
         drop_na(location.lat) %>%
         crop_range_res()

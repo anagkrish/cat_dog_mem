@@ -20,22 +20,27 @@ ridge <- read_csv("ridge.csv") %>%
   filter(`kept (y/n)` == "y") %>% #drop all dropped individuals
   mutate(pursuit = as.factor(pursuit),
          disruptfast = as.factor(disruptfast),
-         slowwalking = as.factor(slowwalking), 
-         #convert to factors bc they're read in as numerical
-         log_mass = log(`mass (g)`),
-         log_hr = log(`area_ud_est (m^2)`),
+         slowwalking = as.factor(slowwalking), #convert to factors bc they're read in as numerical
+         log_mass = log(mass),
+         log_hr = log(area_ud_est),
          inv_ess = 1/ess,
          log_roughness = log(mean_roughness),
          log_hfi = log(mean_hfi),
          log_dhi_gpp = log(mean_dhi_gpp),
          point = as.factor(1:length(id)),
-         log_ridge = log(`ridge_dens_est (1/m)`)) %>%
-  #standardize vars
+         log_ridge = log(ridge_dens_est),
+         log_ridge_length = log(ridge_length_est),
+         logit_ridge_prob = log(ridge_use_prob/(1-ridge_use_prob)),
+         logit_ridge_prob_reduced10 = log(ridge_prob_reduced10/(1-ridge_prob_reduced10)),
+         logit_ridge_prob_reduced100 = log(ridge_prob_reduced100/(1-ridge_prob_reduced100)),
+         logit_ridge_prob_fixed10 = log(ridge_prob_fixed10/(1-ridge_prob_fixed10)),
+         logit_ridge_prob_fixed50 = log(ridge_prob_fixed50/(1-ridge_prob_fixed50)),
+         logit_ridge_prob_fixed100 = log(ridge_prob_fixed10/(1-ridge_prob_fixed100))) %>%
   mutate(log_mass_st=mosaic::zscore(log_mass),
-         log_hr_st=mosaic::zscore(log_hr),
+         log_hr_st=mosaic::zscore(log_hr), 
          log_roughness_st=mosaic::zscore(log_roughness),
          seasonality_dhi_gpp_st=mosaic::zscore(seasonality_dhi_gpp),
-         speed_est_st=mosaic::zscore(`speed_est (m/s)`, na.rm=T),
+         speed_est_st=mosaic::zscore(speed_est, na.rm=T),
          mean_treecover=mean_treecover/100)
 
 #download tree from: https://github.com/n8upham/MamPhy_v1/blob/master/_DATA/MamPhy_fullPosterior_BDvr_Completed_5911sp_topoCons_NDexp_MCC_v2_target.tre
@@ -112,7 +117,7 @@ FELINE <- unique(ridge$phylo[FELINE])
 # RCOV[FELINE,] %*% W == lambda.feline * FELINE
 # W == iCOV %*% c(lambda.c,lambda.f)
 
-iCOV <- ctmm:::PDsolve(RCOV)
+iCOV <- ctmm::pd.solve(RCOV)
 dW.dl <- iCOV %*% cbind( names(REST) %in% CANINE , names(REST) %in% FELINE )
 M <- rbind( colSums( dW.dl[CANINE,] ) , colSums( dW.dl[FELINE,] ) )
 lambda <- c( solve(M) %*% c(1,-1) )
