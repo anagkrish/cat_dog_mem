@@ -158,7 +158,7 @@ get_stats <- function(track) {
   }
 
   #function to get all mod fits so that you can rerun as many times as need be
-  mod_stats <- function(tel,id,species,study) { #input telemetry object
+  mod_stats <- function(dat,id,species,study) { #input telemetry object
 
     min_sampling <- get_minsampling(dat)/60 #outputs in seconds, divide by 60 to get minutes
   
@@ -304,7 +304,6 @@ get_stats <- function(track) {
   
  }
 
-#THESE LINES EDIT INDIVIDUALS THAT WERE FLAGGED AS PROBLEMATIC BUT FIXEABLE
 ############# below are lines to edit problematic individuals as needed
 if (updatedstudy=="Belant-Beyer") {
 if (id%in%c("W07")) {

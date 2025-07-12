@@ -745,6 +745,7 @@ get_stats <- function(track, resamp, nametag) { #nametag is just a way to differ
   track <- track%>%
     as.telemetry()
   
+  #BEST_FIT loaded as file
   dur <- get_duration(track)
   minsampling <- get_minsampling(track)/60 #convert to mins
   mod_name <- summary(BEST_FIT)$name[[1]]
