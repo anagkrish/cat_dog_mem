@@ -1,4 +1,4 @@
-# Spatial memory, hunting strategies, and preferred travel routes in mammalian carnivores
+# Wild canids and felids differ in their reliance on travel routeways
 
 <b>Authors:</b> W.F. Fagan and many, many, many others
 
@@ -6,13 +6,15 @@
 
 Diverse factors, including environmental features and cognitive processes, can drive animals' movements and space use, with far-reaching implications. For example, repeated use of individual-level travel routeways (directionally constrained but imperfectly aligned routes), which results in spatial concentration of movement and activity, can shape encounter-based processes including predation, mate-finding, and disease transmission. However, how much variation in routeway usage exists across species remains unknown. By analyzing GPS movement tracks for 1239 range-resident mammalian carnivores-representing 16 canid and 18 felid species from six continents-we found strong evidence of a clade-level difference in species' reliance on repeatedly used travel routeways. Across the global dataset, tracked canids had a 15% (±7 CI) greater density of routeways within their home ranges than did felids, rising to 33% (±16 CI) greater in landscapes shared with tracked felids. Moreover, comparisons within species across landscapes revealed broadly similar home range routeway densities despite habitat differences. On average, canids also reused their travel routeways more intensively than did felids, with hunting strategies and spatial contexts also contributing to the intensity of routeway usage. Collectively, our results suggest that key aspects of carnivore routeway-usage have an evolutionary component. Striking interspecific and clade-level differences in carnivores' reliance on reused travel routeways within home ranges identify important ways in which the movement patterns of real-world predators depart from classical assumptions of predator-prey theory. Because such departures can drive key aspects of human-wildlife interactions and other encounter-based processes, continued investigations of the relationships between movement mechanisms and space use are critical.
 
-This repo contains the code and additional data required to reproduce the results in this manuscript. More detail on each file is provided below:
+This repo contains the code and additional data required to reproduce the results in this manuscript, as well as high resolution versions of all the figures. More detail on each file is provided below:
 
 ## R Files
+- pglmm_model_fit.R: Simple workflow to fit the PGLMM used in this manuscript. Includes information on how to access the phylogeny used in this model.
 - calculate_fits.R: Part 1 of ridge density calculations. Used to fit and save CTMM models for each individual. 
 - getridgefromfits.R. Part 2 of ridge density calculations. Uses fit from calculate_fits.R to get ridge density for each individual.
 - ranef.rma.mv.R: Hacked metafor function to return covariance matrix (by Dr. Chris Fleming)
 - spatial_controls.R: Code to extract all spatial information from bounding box of each individuals' tracks. Information on how to obtain each spatial variable is included in this code.
+- simulations.R & simulation_functions.R: Exploring the behavior of ridge estimation with both the CTMM and adehabitatHR packages on simulated tracks.
 
 figure scripts: contains R code to run analyses and reproduce all figures in text and supplements.
 
