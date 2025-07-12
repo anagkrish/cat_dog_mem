@@ -21,6 +21,7 @@ source("ranef.rma.mv.R") #hacked metafor function from Chris Fleming
 
 #load full csv
 ridge <- read_csv("ridge.csv") %>%
+  filter(`kept (y/n)` == "y") %>% #drop all dropped individuals
   mutate(pursuit = as.factor(pursuit),
          disruptfast = as.factor(disruptfast),
          slowwalking = as.factor(slowwalking), #convert to factors bc they're read in as numerical
@@ -126,7 +127,7 @@ FELINE <- unique(ridge$phylo[FELINE])
 # RCOV[FELINE,] %*% W == lambda.feline * FELINE
 # W == iCOV %*% c(lambda.c,lambda.f)
 
-iCOV <- ctmm:::PDsolve(RCOV)
+iCOV <- ctmm::pd.solve(RCOV)
 dW.dl <- iCOV %*% cbind( names(REST) %in% CANINE , names(REST) %in% FELINE )
 M <- rbind( colSums( dW.dl[CANINE,] ) , colSums( dW.dl[FELINE,] ) )
 lambda <- c( solve(M) %*% c(1,-1) )

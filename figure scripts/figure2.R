@@ -227,21 +227,25 @@ names <- data.frame(label = phylo$tip.label, label2 = str_replace(phylo$tip.labe
 phylo_plot <- full_join(phylo, names, by = "label")
 
 #get individual plots of dog/cat ridges for fig. 2
-load("vanak/jackal08 (don) data")
+load("vanak/fox13 (vasu) data")
 
-#calculate akde and ridges with workflow from figure 1 or calculatefits/getridgefromfits
+#calculate akde and ks ridges with workflow from figure 1 or calculatefits/getridgefromfits
 AKDES <- load("precalc/akde")
 allridge <- load("precalc/ridges")
 
 projection(allridge@proj4string)
 
-ridges_km <- spTransform(allridge,"+proj=aeqd +lat_0=18.2950005802249 +lon_0=74.5378448310939 +x_0=0 +y_0=0 +datum=WGS84 +units=km +no_defs")
+ridges_km <- spTransform(as_Spatial(ridges_mean_ks),"+proj=aeqd +lat_0=18.3247561459615 +lon_0=74.6171183357356 +x_0=0 +y_0=0 +datum=WGS84 +units=km +no_defs")
 AKDES@info$identity
 
 par(mar = c(5, 6, 1, 1))
-plot(AKDES, col.UD="grey50", col.grid=NA, cex.lab=2, cex.axis=2)
-title(sub="Canis aureus", cex.sub=2, adj = 0.1)
+plot(UD, col.UD="grey50", col.grid=NA, cex.lab=3, cex.axis=3, yaxt="n",xaxt = "n")
 plot(ridges_km, col="blue", lwd=2, add=T)
+text(-15.7, 1.5, "Vulpes bengalensis", cex=2.5)
+axis(1, at = c(-16, -15, -14),
+     labels = c(-1, 0, 1), cex.axis=3)
+axis(2, at = c(-1, -0, 1),
+     labels = c(-1, 0, 1), cex.axis=3)
 
 #felid ridge 
 load("sekercioglu/ani/lynx/data")
@@ -256,9 +260,9 @@ ridges_km <- spTransform(allridge,"+proj=aeqd +lat_0=40.2058246972533 +lon_0=42.
 AKDES@info$identity
 
 par(mar = c(6, 6, 1, 1))
-plot(AKDES, col.UD="grey50", col.grid=NA, cex.lab=2, cex.axis=2)
-title(sub="Lynx lynx", cex.sub=2, adj = 0.1)
+plot(UD, col.UD="grey50", col.grid=NA, cex.lab=3, cex.axis=3)
 plot(ridges_km, col="red", lwd=2, add=T)
+text(-8, 9.3, "Lynx lynx", cex=2.5)
 
 #put it all together
 p <- ggtree(phylo_plot) +
