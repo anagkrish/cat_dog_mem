@@ -12,7 +12,7 @@ This repo contains the code and additional data required to reproduce the result
 
 # Start here
 - calculate_ridge.R: Simple workflow to calculate ridges on an individual movement track using CTMM.
-- pglmm_model_fit.R: Simple workflow to fit the PGLMM used in this manuscript. Includes information on how to access the phylogeny used in this model.
+- pglmm_fit.R: Simple workflow to fit the PGLMM used in this manuscript. Includes information on how to access the phylogeny used in this model.
 
 # More detail
 - calculate_fits.R: Part 1 of ridge density calculations. Used to fit and save CTMM models for each individual. 
@@ -24,6 +24,7 @@ This repo contains the code and additional data required to reproduce the result
 figure scripts: contains R code to run analyses and reproduce all figures in text and supplements.
 
 main figures: .png files of all figures in main text
+
 supp figures: .png files of all figures in supplementary text
 
 ## Additional Notes

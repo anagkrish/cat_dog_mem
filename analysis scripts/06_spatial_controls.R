@@ -24,7 +24,7 @@ mod_to_tracks <- function(track) {
                          Species==track$individual.taxon.canonical.name[[1]],
                          Study==track$study.id[[1]])$`Updated Study`
   
-  ############# below are lines to edit problematic individuals as needed
+  ############# below are lines to edit individual tracks (see methods in supplemental info for more details)
   if (updatedstudy=="Belant-Beyer") {
     if (id%in%c("W07")) {
       track <- crop_range_res(track)
