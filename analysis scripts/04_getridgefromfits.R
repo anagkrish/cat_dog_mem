@@ -1,4 +1,4 @@
-#part 2 of calculating ridge densities; uses saved model fits to get ridge densities
+#part 2 of calculating ridge densities; uses saved model fits from calculate_fits.R to get ridge densities
 
 #load libraries
 library(tidyverse)
