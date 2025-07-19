@@ -10,7 +10,7 @@ This repo contains the code and additional data required to reproduce the result
 
 ## R Files
 
-All R files are in the 'analysis scripts' folder and all csv files are in the 'data' folder.
+The R files listed below are in the 'analysis scripts' folder and all csv files are in the 'data' folder.
 
 # Start here
 - calculate_ridge.R: Simple workflow to calculate ridges on an individual movement track using CTMM.
@@ -21,7 +21,7 @@ All R files are in the 'analysis scripts' folder and all csv files are in the 'd
 - getridgefromfits.R. Part 2 of ridge density calculations. Uses fit from calculate_fits.R to get ridge density for each individual.
 - ranef.rma.mv.R: Hacked metafor function to return covariance matrix (by Dr. Chris Fleming)
 - spatial_controls.R: Code to extract all spatial information from bounding box of each individuals' tracks. Information on how to obtain each spatial variable is included in this code.
-- simulations.R & simulation_functions.R: Exploring the behavior of ridge estimation with both the CTMM and adehabitatHR packages on simulated tracks.
+- simulations.R & simulation_functions.R: Exploring the behavior of ridge estimation with both the CTMM and adehabitatHR packages on simulated tracks (by Dr. Mike Noonan).
 
 figure scripts: contains R code to run analyses and reproduce all figures in text and supplements.
 
