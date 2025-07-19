@@ -10,6 +10,8 @@ This repo contains the code and additional data required to reproduce the result
 
 ## R Files
 
+All R files are in the 'analysis scripts' folder and all csv files are in the 'data' folder.
+
 # Start here
 - calculate_ridge.R: Simple workflow to calculate ridges on an individual movement track using CTMM.
 - pglmm_fit.R: Simple workflow to fit the PGLMM used in this manuscript. Includes information on how to access the phylogeny used in this model.
