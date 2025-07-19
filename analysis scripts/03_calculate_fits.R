@@ -14,6 +14,7 @@ library(geosphere)
 "%ni%" <- Negate("%in%")
 
 #load object alldata (all movement data for 1528 individuals)
+#note: movement data used in this manuscript is archived in Movebank. see manuscript for more details.
 load("movement/data/here")
 
 #list of individuals/species/study names -- used to filter individuals
@@ -1036,3 +1037,4 @@ print("done!")
 
 Rmpi::mpi.close.Rslaves()
 
+#output of this file is an folder of movement models for each individual. this is read into getridgefromfits.R 

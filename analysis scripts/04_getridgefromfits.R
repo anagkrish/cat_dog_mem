@@ -17,6 +17,7 @@ library(doSNOW)
 "%ni%" <- Negate("%in%")
 
 #load movement object alldata for all 1528 individuals
+#note: movement data used in this manuscript is archived in Movebank. see manuscript for more details.
 load("movement/data/here")
 
 #list of individuals/species/study names -- used to filter individuals
@@ -1105,4 +1106,6 @@ print("writing to rda")
 write_csv(ALLRIDGE, file="ridgedatstats.csv")
 
 print("done")
+
+#output of this file is ridge.csv (see 'data' folder)
 

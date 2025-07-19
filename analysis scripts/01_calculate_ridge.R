@@ -6,6 +6,7 @@ library(sp)
 library(sf)
 library(grDevices)
 
+#movement data is any csv file
 track <- "load/movement/data/here"
 
 telemetry <- as.telemetry(track)
